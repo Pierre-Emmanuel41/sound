@@ -15,12 +15,11 @@ import fr.pederobien.utils.ByteWrapper;
 public class Encoder implements IEncoder {
 	private FastFourierTransformer fastFourierTransformer;
 	private AtomicBoolean isStarted;
-	private double sampleRate, lowpassRate, highpassRate;
+	private double lowpassRate, highpassRate;
 	private byte[] lastSample;
 	private Logistic logistic;
 
-	public Encoder(double sampleRate, double lowpassRate, double highpassRate) {
-		this.sampleRate = sampleRate;
+	public Encoder(double lowpassRate, double highpassRate) {
 		this.lowpassRate = lowpassRate;
 		this.highpassRate = highpassRate;
 
@@ -108,7 +107,7 @@ public class Encoder implements IEncoder {
 
 		// Step 1: Applying low pass and high pass filter
 		for (int i = 0; i < complexes.length / 2; i++) {
-			double frequency = i * sampleRate / (double) complexes.length;
+			double frequency = i * Microphone.FORMAT.getSampleRate() / (double) complexes.length;
 			if (frequency > lowpassRate || frequency < highpassRate)
 				complexes[i] = null;
 			else {
