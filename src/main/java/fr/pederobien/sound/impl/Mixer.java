@@ -5,9 +5,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.ByteWrapper;
 
-public class Mixer {
+public class Mixer implements IMixer {
 	private Map<String, Sound> sounds;
 	private double globalVolume;
 	private Object mutex;
@@ -18,14 +19,17 @@ public class Mixer {
 		mutex = new Object();
 	}
 
-	/**
-	 * Get or create an internal sound associated to the given key. This key is used to get a continuously sound when several sound
-	 * need to be played at the same time. The byte array should correspond to a stereo signal.
-	 * 
-	 * @param key          The key used to get the associated sound
-	 * @param data         The bytes array to extract.
-	 * @param globalVolume The global volume associated to the sample.
-	 */
+	@Override
+	public double getGlobalVolume() {
+		return globalVolume;
+	}
+
+	@Override
+	public void setGlobalVolume(double globalVolume) {
+		this.globalVolume = globalVolume < 0 ? 0 : globalVolume;
+	}
+
+	@Override
 	public void put(String key, byte[] data, int globalVolume) {
 		Sound sound = sounds.get(key);
 		if (sound == null) {
@@ -45,7 +49,7 @@ public class Mixer {
 	 * @param length the maximum number of bytes that should be read.
 	 * @return number of bytes read into buffer.
 	 */
-	public int read(byte[] data, int offset, int length) {
+	protected int read(byte[] data, int offset, int length) {
 		// ************************************************//
 		// assume little-endian, stereo, 16-bit, signed PCM//
 		// ************************************************//
@@ -106,27 +110,11 @@ public class Mixer {
 	}
 
 	/**
-	 * @return The global volume associated
-	 */
-	public double getGlobalVolume() {
-		return globalVolume;
-	}
-
-	/**
-	 * Set the global volume of this mixer.
-	 * 
-	 * @param globalVolume The mixer global volume.
-	 */
-	public void setGlobalVolume(double globalVolume) {
-		this.globalVolume = globalVolume < 0 ? 0 : globalVolume;
-	}
-
-	/**
 	 * Skip specified number of bytes of all audio in this Mixer.
 	 * 
 	 * @param numBytes the number of bytes to skip
 	 */
-	public void skip(int numBytes) {
+	protected void skip(int numBytes) {
 		Iterator<Sound> iterator = sounds.values().iterator();
 		while (iterator.hasNext()) {
 			iterator.next().skip(numBytes);
