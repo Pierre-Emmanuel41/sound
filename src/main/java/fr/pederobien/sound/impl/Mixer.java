@@ -30,7 +30,10 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void put(String key, byte[] data, double globalVolume) {
+	public void put(String key, byte[] data, double globalVolume, boolean isMono) {
+		if (isMono)
+			data = toStereo(data);
+
 		Sound sound = sounds.get(key);
 		if (sound == null) {
 			sound = new Sound();
@@ -119,6 +122,21 @@ public class Mixer implements IMixer {
 		while (iterator.hasNext()) {
 			iterator.next().skip(numBytes);
 		}
+	}
+
+	private byte[] toStereo(byte[] mono) {
+		byte[] data = new byte[mono.length * 2];
+		int index = 0;
+		for (int i = 0; i < mono.length; i += 2) {
+			short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
+
+			data[index++] = (byte) initialShort;
+			data[index++] = (byte) (initialShort >> 8);
+			data[index++] = (byte) initialShort;
+			data[index++] = (byte) (initialShort >> 8);
+		}
+
+		return data;
 	}
 
 	private class Sound {

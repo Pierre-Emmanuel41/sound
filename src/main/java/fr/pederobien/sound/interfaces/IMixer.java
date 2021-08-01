@@ -16,11 +16,12 @@ public interface IMixer {
 
 	/**
 	 * Get or create an internal sound associated to the given key. This key is used to get a continuously sound when several sound
-	 * need to be played at the same time. The byte array should correspond to a stereo signal.
+	 * need to be played at the same time.
 	 * 
 	 * @param key          The key used to get the associated sound
 	 * @param data         The bytes array to extract for left and right channel.
 	 * @param globalVolume The global volume associated to the sample.
+	 * @param isMono       Indicates id the bytes array correspond to a mono signal.
 	 */
-	void put(String key, byte[] data, double globalVolume);
+	void put(String key, byte[] data, double globalVolume, boolean isMono);
 }
