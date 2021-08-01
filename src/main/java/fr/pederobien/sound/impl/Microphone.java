@@ -20,7 +20,7 @@ public class Microphone extends Thread implements IMicrophone {
 	private Semaphore semaphore;
 	private Observable<IObsMicrophone> observers;
 
-	public Microphone() {
+	protected Microphone() {
 		super("Microphone");
 		semaphore = new Semaphore(1, true);
 		observers = new Observable<IObsMicrophone>();

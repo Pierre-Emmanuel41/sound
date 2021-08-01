@@ -20,7 +20,7 @@ public class Speakers extends Thread implements ISpeakers {
 	private Semaphore semaphore;
 	private Observable<IObsSpeakers> observers;
 
-	public Speakers(Mixer mixer) {
+	protected Speakers(Mixer mixer) {
 		super("SpeakerThread");
 		this.mixer = mixer;
 		semaphore = new Semaphore(1, true);

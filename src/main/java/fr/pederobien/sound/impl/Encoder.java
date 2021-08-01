@@ -19,7 +19,7 @@ public class Encoder implements IEncoder {
 	private byte[] lastSample;
 	private Logistic logistic;
 
-	public Encoder(double lowpassRate, double highpassRate) {
+	protected Encoder(double lowpassRate, double highpassRate) {
 		this.lowpassRate = lowpassRate;
 		this.highpassRate = highpassRate;
 

@@ -7,7 +7,7 @@ import fr.pederobien.utils.BlockingQueueTask;
 public class AsynchonousEncoder extends Encoder {
 	private BlockingQueueTask<Action> encodeQueue, decodeQueue;
 
-	public AsynchonousEncoder(double lowpassRate, double highpassRate) {
+	protected AsynchonousEncoder(double lowpassRate, double highpassRate) {
 		super(lowpassRate, highpassRate);
 		encodeQueue = new BlockingQueueTask<>("AudioEncoder", action -> encode(action));
 		decodeQueue = new BlockingQueueTask<>("AudioDecoder", action -> decode(action));

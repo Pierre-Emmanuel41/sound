@@ -13,7 +13,7 @@ public class Mixer implements IMixer {
 	private double globalVolume;
 	private Object mutex;
 
-	public Mixer() {
+	protected Mixer() {
 		sounds = new HashMap<String, Sound>();
 		globalVolume = 1.0;
 		mutex = new Object();
