@@ -13,7 +13,7 @@ import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.Observable;
 
 public class Speakers extends Thread implements ISpeakers {
-	private static AudioFormat FORMAT = Microphone.FORMAT;
+	private static AudioFormat FORMAT = new AudioFormat(44100.0f, 16, 2, true, false);
 	private boolean pauseRequested;
 	private Mixer mixer;
 	private SourceDataLine speakers;
