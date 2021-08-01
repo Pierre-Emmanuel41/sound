@@ -51,6 +51,8 @@ public class Encoder implements IEncoder {
 	}
 
 	protected void encode(Action action) {
+		checkIsStarted();
+
 		// Need minimum 2 samples to force the output signal to be continuous
 		if (lastSample == null) {
 			lastSample = action.getData();
@@ -71,6 +73,7 @@ public class Encoder implements IEncoder {
 	}
 
 	protected void decode(Action action) {
+		checkIsStarted();
 		action.getAction().accept(decode(action.getData()));
 	}
 
@@ -199,9 +202,9 @@ public class Encoder implements IEncoder {
 		return complexes;
 	}
 
-	protected void checkIsStarted() {
+	private void checkIsStarted() {
 		if (!isStarted.get())
-			throw new UnsupportedOperationException("This encoder is not started");
+			throw new IllegalStateException("This encoder is not started");
 	}
 
 	protected class Action {

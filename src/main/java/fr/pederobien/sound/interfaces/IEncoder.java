@@ -23,6 +23,8 @@ public interface IEncoder {
 	 * 
 	 * @param data   The byte array that represents the data coming from the microphone.
 	 * @param action The action to do once the data has been encoded.
+	 * 
+	 * @throws IllegalStateException If the encoder has not been started.
 	 */
 	public void encode(byte[] data, Consumer<byte[]> action);
 
@@ -32,6 +34,8 @@ public interface IEncoder {
 	 * 
 	 * @param data   The byte array that represents the data coming from the #{@link IEncoder#encode(byte[], Consumer)} method.
 	 * @param action The action to do once the data has been decoded.
+	 * 
+	 * @throws IllegalStateException If the encoder has not been started.
 	 */
 	public void decode(byte[] data, Consumer<byte[]> action);
 }

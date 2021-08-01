@@ -15,12 +15,14 @@ public class AsynchonousEncoder extends Encoder {
 
 	@Override
 	public void start() {
+		super.start();
 		encodeQueue.start();
 		decodeQueue.start();
 	}
 
 	@Override
 	public void stop() {
+		super.stop();
 		encodeQueue.dispose();
 		decodeQueue.dispose();
 	}
