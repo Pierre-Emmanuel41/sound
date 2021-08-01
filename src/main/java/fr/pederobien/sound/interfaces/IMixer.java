@@ -22,5 +22,5 @@ public interface IMixer {
 	 * @param data         The bytes array to extract for left and right channel.
 	 * @param globalVolume The global volume associated to the sample.
 	 */
-	void put(String key, byte[] data, int globalVolume);
+	void put(String key, byte[] data, double globalVolume);
 }

@@ -30,7 +30,7 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void put(String key, byte[] data, int globalVolume) {
+	public void put(String key, byte[] data, double globalVolume) {
 		Sound sound = sounds.get(key);
 		if (sound == null) {
 			sound = new Sound();
@@ -124,7 +124,7 @@ public class Mixer implements IMixer {
 	private class Sound {
 		private byte[] left, right;
 		private Object mutex;
-		private int lastGlobalVolume;
+		private double lastGlobalVolume;
 
 		public Sound() {
 			left = new byte[0];
@@ -132,7 +132,7 @@ public class Mixer implements IMixer {
 			mutex = new Object();
 		}
 
-		public void extract(int globalVolume, byte[] data) {
+		public void extract(double globalVolume, byte[] data) {
 			ByteWrapper wrapper = ByteWrapper.wrap(data);
 			while (wrapper.get().length >= 4) {
 				synchronized (mutex) {
@@ -213,7 +213,7 @@ public class Mixer implements IMixer {
 			right = rightTemps;
 		}
 
-		private void updateSampleVolume(int globalVolume) {
+		private void updateSampleVolume(double globalVolume) {
 			if (lastGlobalVolume == globalVolume)
 				return;
 
