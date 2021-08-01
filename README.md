@@ -49,7 +49,7 @@ provider.getSpeakers().addObserver(obsSpeakers);
 
 To play data, the bytes array is not directly given to the speakers. There is an intermediate object : <code>IMixer</code>. This mixer is particularly powerful when several sounds are played simultaneously. It is his responsibility to merge the signals coming from each registered sound in order to create one unique signal used by the speakers.
 
-```
+```java
 // bytes array coming from the microphone
 byte[] dataMicro = new byte[1024];
 
