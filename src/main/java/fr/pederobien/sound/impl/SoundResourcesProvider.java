@@ -1,6 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import fr.pederobien.sound.interfaces.IEncoder;
 import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.sound.interfaces.ISoundResourcesProvider;
@@ -9,7 +8,6 @@ import fr.pederobien.sound.interfaces.ISpeakers;
 public class SoundResourcesProvider implements ISoundResourcesProvider {
 	private IMicrophone microphone;
 	private ISpeakers speakers;
-	private IEncoder encoder;
 	private IMixer mixer;
 
 	/**
@@ -20,11 +18,10 @@ public class SoundResourcesProvider implements ISoundResourcesProvider {
 	 * @param lowpassRate         low-pass rate (Hz) for the low-pass filter associated to the encoder.
 	 * @param highpassRate        high-pass rate (Hz) for the high-pass filter associated to the encoder.
 	 */
-	public SoundResourcesProvider(boolean asynchronousEncoder, double lowpassRate, double highpassRate) {
+	public SoundResourcesProvider() {
 		microphone = new Microphone();
 		mixer = new Mixer();
 		speakers = new Speakers((Mixer) mixer);
-		encoder = asynchronousEncoder ? new AsynchonousEncoder(lowpassRate, highpassRate) : new Encoder(lowpassRate, highpassRate);
 	}
 
 	@Override
@@ -35,11 +32,6 @@ public class SoundResourcesProvider implements ISoundResourcesProvider {
 	@Override
 	public ISpeakers getSpeakers() {
 		return speakers;
-	}
-
-	@Override
-	public IEncoder getEncoder() {
-		return encoder;
 	}
 
 	@Override
