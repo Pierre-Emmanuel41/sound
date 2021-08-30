@@ -25,13 +25,7 @@ and then double click on the deploy.bat file. This will deploy this project and 
 It is very simple to use the features implemented in this API. The developer needs to instantiate a <code>ISoundResourcesProvider</code>. From this provider, the developer has access to the microphone, the speakers and a mixer.
 
 ```java
-// Asynchronous or synchronous encoder
-boolean isAsynchronous = true;
-
-// High-pass filter and low-pass filter frequencies
-double highpassRate = 100, lowpassRate = 5000;
-
-ISoundResourcesProvider provider = new SoundResourcesProvider(isAsynchronous, lowpassRate, highpassRate);
+ISoundResourcesProvider provider = new SoundResourcesProvider();
 IMicrophone micro = provider.getMicrophone();
 ISpeakers speakers = provider.getSpeakers();
 IMixer mixer = provider.getMixer();
@@ -83,12 +77,6 @@ provider.getSpeakers().interrupt();
 
 ```java
 public static void main(String[] args) {
-	// Asynchronous or synchronous encoder
-	boolean isAsynchronous = true;
-
-	// High-pass filter and low-pass filter frequencies
-	double highpassRate = 100, lowpassRate = 5000;
-
 	ISoundResourcesProvider provider = new SoundResourcesProvider(isAsynchronous, lowpassRate, highpassRate);
 	IMicrophone micro = provider.getMicrophone();
 	ISpeakers speakers = provider.getSpeakers();
