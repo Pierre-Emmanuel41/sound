@@ -8,9 +8,18 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.TargetDataLine;
 
+import fr.pederobien.sound.event.MicrophoneDataReadEvent;
+import fr.pederobien.sound.event.MicrophoneInterruptPostEvent;
+import fr.pederobien.sound.event.MicrophoneInterruptPreEvent;
+import fr.pederobien.sound.event.MicrophonePausePostEvent;
+import fr.pederobien.sound.event.MicrophonePausePreEvent;
+import fr.pederobien.sound.event.MicrophoneRelaunchPostEvent;
+import fr.pederobien.sound.event.MicrophoneRelaunchPreEvent;
+import fr.pederobien.sound.event.MicrophoneStartPostEvent;
+import fr.pederobien.sound.event.MicrophoneStartPreEvent;
 import fr.pederobien.sound.interfaces.IMicrophone;
-import fr.pederobien.sound.interfaces.IObsMicrophone;
-import fr.pederobien.utils.Observable;
+import fr.pederobien.utils.ByteWrapper;
+import fr.pederobien.utils.event.EventManager;
 
 public class Microphone extends Thread implements IMicrophone {
 	protected static final AudioFormat FORMAT = new AudioFormat(44100.0f, 16, 1, true, false);
@@ -18,43 +27,37 @@ public class Microphone extends Thread implements IMicrophone {
 	private boolean pauseRequested;
 	private TargetDataLine microphone;
 	private Semaphore semaphore;
-	private Observable<IObsMicrophone> observers;
 
 	protected Microphone() {
 		super("Microphone");
 		semaphore = new Semaphore(1, true);
-		observers = new Observable<IObsMicrophone>();
 		setDaemon(true);
 	}
 
 	@Override
-	public void addObserver(IObsMicrophone obs) {
-		observers.addObserver(obs);
-	}
-
-	@Override
-	public void removeObserver(IObsMicrophone obs) {
-		observers.removeObserver(obs);
-	}
-
-	@Override
 	public void start() {
-		try {
-			microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, FORMAT));
-			microphone.open(FORMAT);
-			super.start();
-		} catch (LineUnavailableException e) {
-			e.printStackTrace();
-		}
+		EventManager.callEvent(new MicrophoneStartPreEvent(this), () -> {
+			try {
+				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, FORMAT));
+				microphone.open(FORMAT);
+				EventManager.callEvent(new MicrophoneStartPostEvent(this));
+				super.start();
+			} catch (LineUnavailableException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 	@Override
 	public void interrupt() {
-		if (microphone != null) {
-			microphone.stop();
-			microphone.close();
-		}
-		super.interrupt();
+		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), () -> {
+			if (microphone != null) {
+				microphone.stop();
+				microphone.close();
+			}
+			super.interrupt();
+			EventManager.callEvent(new MicrophoneInterruptPostEvent(this));
+		});
 	}
 
 	@Override
@@ -72,7 +75,9 @@ public class Microphone extends Thread implements IMicrophone {
 					continue;
 				}
 
-				observers.notifyObservers(obs -> obs.onDataRead(data, numBytesRead));
+				if (numBytesRead != CHUNK_SIZE)
+					data = ByteWrapper.wrap(data).extract(0, numBytesRead);
+				EventManager.callEvent(new MicrophoneDataReadEvent(this, data));
 				semaphore.release();
 			} catch (InterruptedException e) {
 				break;
@@ -82,17 +87,23 @@ public class Microphone extends Thread implements IMicrophone {
 
 	@Override
 	public void pause() {
-		pauseRequested = true;
-		try {
-			semaphore.acquire();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> {
+			pauseRequested = true;
+			try {
+				EventManager.callEvent(new MicrophonePausePostEvent(this));
+				semaphore.acquire();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 	@Override
 	public void relaunch() {
-		pauseRequested = false;
-		semaphore.release();
+		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), () -> {
+			pauseRequested = false;
+			semaphore.release();
+			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
+		});
 	}
 }

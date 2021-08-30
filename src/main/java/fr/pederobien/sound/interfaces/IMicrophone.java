@@ -2,9 +2,7 @@ package fr.pederobien.sound.interfaces;
 
 import javax.sound.sampled.TargetDataLine;
 
-import fr.pederobien.utils.IObservable;
-
-public interface IMicrophone extends IObservable<IObsMicrophone> {
+public interface IMicrophone {
 
 	/**
 	 * Method to start the microphone in order to receive data from the underlying {@link TargetDataLine}.

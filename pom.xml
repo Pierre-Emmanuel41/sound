@@ -8,7 +8,7 @@
 	<version>1.0-SNAPSHOT</version>
 	<name>sound</name>
 	<url>http://maven.apache.org</url>
-	
+
 	<properties>
 		<author>Pierre-Emmanuel41</author>
 		<project.build.sourceEncoding>Cp1252</project.build.sourceEncoding>
@@ -26,6 +26,11 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-math3</artifactId>
 			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>net.java.dev.jna</groupId>
+			<artifactId>jna</artifactId>
+			<version>5.9.0</version>
 		</dependency>
 	</dependencies>
 

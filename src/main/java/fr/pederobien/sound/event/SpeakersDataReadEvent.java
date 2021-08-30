@@ -4,7 +4,7 @@ import javax.sound.sampled.SourceDataLine;
 
 import fr.pederobien.sound.interfaces.ISpeakers;
 
-public class SpeakersDataRead extends SpeakersEvent {
+public class SpeakersDataReadEvent extends SpeakersEvent {
 	private byte[] data;
 
 	/**
@@ -13,7 +13,7 @@ public class SpeakersDataRead extends SpeakersEvent {
 	 * @param speakers The speakers that read data.
 	 * @param data     The data reading by the speakers.
 	 */
-	public SpeakersDataRead(ISpeakers speakers, byte[] data) {
+	public SpeakersDataReadEvent(ISpeakers speakers, byte[] data) {
 		super(speakers);
 		this.data = data;
 	}

@@ -4,7 +4,7 @@ import javax.sound.sampled.TargetDataLine;
 
 import fr.pederobien.sound.interfaces.IMicrophone;
 
-public class MicrophoneDataRead extends MicrophoneEvent {
+public class MicrophoneDataReadEvent extends MicrophoneEvent {
 	private byte[] data;
 
 	/**
@@ -13,7 +13,7 @@ public class MicrophoneDataRead extends MicrophoneEvent {
 	 * @param microphone The microphone that read data.
 	 * @param data       The data coming from the microphone.
 	 */
-	public MicrophoneDataRead(IMicrophone microphone, byte[] data) {
+	public MicrophoneDataReadEvent(IMicrophone microphone, byte[] data) {
 		super(microphone);
 		this.data = data;
 	}
