@@ -8,9 +8,17 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
-import fr.pederobien.sound.interfaces.IObsSpeakers;
+import fr.pederobien.sound.event.SpeakersDataReadEvent;
+import fr.pederobien.sound.event.SpeakersInterruptPostEvent;
+import fr.pederobien.sound.event.SpeakersInterruptPreEvent;
+import fr.pederobien.sound.event.SpeakersPausePostEvent;
+import fr.pederobien.sound.event.SpeakersPausePreEvent;
+import fr.pederobien.sound.event.SpeakersRelaunchPostEvent;
+import fr.pederobien.sound.event.SpeakersRelaunchPreEvent;
+import fr.pederobien.sound.event.SpeakersStartPostEvent;
+import fr.pederobien.sound.event.SpeakersStartPreEvent;
 import fr.pederobien.sound.interfaces.ISpeakers;
-import fr.pederobien.utils.Observable;
+import fr.pederobien.utils.event.EventManager;
 
 public class Speakers extends Thread implements ISpeakers {
 	private static AudioFormat FORMAT = new AudioFormat(44100.0f, 16, 2, true, false);
@@ -18,35 +26,26 @@ public class Speakers extends Thread implements ISpeakers {
 	private Mixer mixer;
 	private SourceDataLine speakers;
 	private Semaphore semaphore;
-	private Observable<IObsSpeakers> observers;
 
 	protected Speakers(Mixer mixer) {
 		super("SpeakerThread");
 		this.mixer = mixer;
 		semaphore = new Semaphore(1, true);
-		observers = new Observable<IObsSpeakers>();
 		setDaemon(true);
 	}
 
 	@Override
-	public void addObserver(IObsSpeakers obs) {
-		observers.addObserver(obs);
-	}
-
-	@Override
-	public void removeObserver(IObsSpeakers obs) {
-		observers.removeObserver(obs);
-	}
-
-	@Override
 	public void start() {
-		try {
-			speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, FORMAT));
-			speakers.open(FORMAT);
-			super.start();
-		} catch (LineUnavailableException e) {
-			e.printStackTrace();
-		}
+		EventManager.callEvent(new SpeakersStartPreEvent(this), () -> {
+			try {
+				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, FORMAT));
+				speakers.open(FORMAT);
+				EventManager.callEvent(new SpeakersStartPostEvent(this));
+				super.start();
+			} catch (LineUnavailableException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 	@Override
@@ -100,7 +99,7 @@ public class Speakers extends Thread implements ISpeakers {
 				framesAccrued -= (framesToRead + framesToSkip);
 				// write to speakers
 				if (numBytesRead > 0) {
-					observers.notifyObservers(obs -> obs.onDataRead(audioBuffer, audioBuffer.length));
+					EventManager.callEvent(new SpeakersDataReadEvent(this, audioBuffer));
 					speakers.write(audioBuffer, 0, numBytesRead);
 					numBytesRead = 0;
 				}
@@ -122,27 +121,36 @@ public class Speakers extends Thread implements ISpeakers {
 
 	@Override
 	public void interrupt() {
-		if (speakers != null) {
-			speakers.stop();
-			speakers.close();
-		}
-		super.interrupt();
+		EventManager.callEvent(new SpeakersInterruptPreEvent(this), () -> {
+			if (speakers != null) {
+				speakers.stop();
+				speakers.close();
+			}
+			super.interrupt();
+			EventManager.callEvent(new SpeakersInterruptPostEvent(this));
+		});
 	}
 
 	@Override
 	public void pause() {
-		try {
-			pauseRequested = true;
-			semaphore.acquire();
-			speakers.flush();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		EventManager.callEvent(new SpeakersPausePreEvent(this), () -> {
+			try {
+				pauseRequested = true;
+				EventManager.callEvent(new SpeakersPausePostEvent(this));
+				semaphore.acquire();
+				speakers.flush();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 	@Override
 	public void relaunch() {
-		pauseRequested = false;
-		semaphore.release();
+		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), () -> {
+			pauseRequested = false;
+			semaphore.release();
+			EventManager.callEvent(new SpeakersRelaunchPostEvent(this));
+		});
 	}
 }

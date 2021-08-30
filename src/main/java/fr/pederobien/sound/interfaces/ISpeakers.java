@@ -2,9 +2,7 @@ package fr.pederobien.sound.interfaces;
 
 import javax.sound.sampled.SourceDataLine;
 
-import fr.pederobien.utils.IObservable;
-
-public interface ISpeakers extends IObservable<IObsSpeakers> {
+public interface ISpeakers {
 
 	/**
 	 * Method to start the speakers in order to play data with the underlying {@link SourceDataLine}.
