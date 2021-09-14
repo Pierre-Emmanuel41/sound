@@ -21,7 +21,7 @@ import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.event.EventManager;
 
 public class Speakers extends Thread implements ISpeakers {
-	private static AudioFormat FORMAT = new AudioFormat(44100.0f, 16, 2, true, false);
+	private static AudioFormat FORMAT = new AudioFormat(48000, 16, 2, true, false);
 	private boolean pauseRequested;
 	private Mixer mixer;
 	private SourceDataLine speakers;

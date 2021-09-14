@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import fr.pederobien.sound.interfaces.IDecoder;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.ByteWrapper;
 
@@ -30,18 +31,16 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void put(String key, byte[] data, double globalVolume, boolean isMono) {
-		if (isMono)
-			data = toStereo(data);
-
-		Sound sound = sounds.get(key);
+	public void put(AudioPacket packet) {
+		Sound sound = sounds.get(packet.getKey());
 		if (sound == null) {
 			sound = new Sound();
 			synchronized (mutex) {
-				sounds.put(key, sound);
+				sounds.put(packet.getKey(), sound);
 			}
 		}
-		sound.extract(globalVolume, data);
+
+		sound.extract(packet);
 	}
 
 	/**
@@ -124,33 +123,27 @@ public class Mixer implements IMixer {
 		}
 	}
 
-	private byte[] toStereo(byte[] mono) {
-		byte[] data = new byte[mono.length * 2];
-		int index = 0;
-		for (int i = 0; i < mono.length; i += 2) {
-			short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
-
-			data[index++] = (byte) initialShort;
-			data[index++] = (byte) (initialShort >> 8);
-			data[index++] = (byte) initialShort;
-			data[index++] = (byte) (initialShort >> 8);
-		}
-
-		return data;
-	}
-
 	private class Sound {
+		private IDecoder decoder;
 		private byte[] left, right;
 		private Object mutex;
-		private double lastGlobalVolume;
 
 		public Sound() {
+			decoder = new Decoder();
 			left = new byte[0];
 			right = new byte[0];
 			mutex = new Object();
 		}
 
-		public void extract(double globalVolume, byte[] data) {
+		public void extract(AudioPacket packet) {
+			byte[] data = packet.getData();
+
+			if (packet.isEncoded())
+				data = decoder.decode(data);
+
+			if (packet.isMono())
+				data = toStereo(data, packet.getLeftVolume(), packet.getRightVolume());
+
 			ByteWrapper wrapper = ByteWrapper.wrap(data);
 			while (wrapper.get().length >= 4) {
 				synchronized (mutex) {
@@ -158,7 +151,6 @@ public class Mixer implements IMixer {
 					putRight(wrapper.take(0, 2));
 				}
 			}
-			updateSampleVolume(globalVolume);
 		}
 
 		public void fillTwoBytes(int[] data) {
@@ -231,12 +223,21 @@ public class Mixer implements IMixer {
 			right = rightTemps;
 		}
 
-		private void updateSampleVolume(double globalVolume) {
-			if (lastGlobalVolume == globalVolume)
-				return;
+		private byte[] toStereo(byte[] mono, double leftVolume, double rightVolume) {
+			byte[] data = new byte[mono.length * 2];
+			int index = 0;
+			for (int i = 0; i < mono.length; i += 2) {
+				short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
+				short leftResult = (short) (((double) initialShort) * leftVolume);
+				short rightResult = (short) (((double) initialShort) * rightVolume);
 
-			// TODO : Update the sample volume continuously
-			lastGlobalVolume = globalVolume;
+				data[index++] = (byte) leftResult;
+				data[index++] = (byte) (leftResult >> 8);
+				data[index++] = (byte) rightResult;
+				data[index++] = (byte) (rightResult >> 8);
+			}
+
+			return data;
 		}
 	}
 }

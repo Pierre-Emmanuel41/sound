@@ -1,5 +1,7 @@
 package fr.pederobien.sound.interfaces;
 
+import fr.pederobien.sound.impl.AudioPacket;
+
 public interface IMixer {
 
 	/**
@@ -18,10 +20,7 @@ public interface IMixer {
 	 * Get or create an internal sound associated to the given key. This key is used to get a continuously sound when several sound
 	 * need to be played at the same time.
 	 * 
-	 * @param key          The key used to get the associated sound
-	 * @param data         The bytes array to extract for left and right channel.
-	 * @param globalVolume The global volume associated to the sample.
-	 * @param isMono       Indicates id the bytes array correspond to a mono signal.
+	 * @param packet the packet that gather the properties of the audio sample to add.
 	 */
-	void put(String key, byte[] data, double globalVolume, boolean isMono);
+	void put(AudioPacket packet);
 }
