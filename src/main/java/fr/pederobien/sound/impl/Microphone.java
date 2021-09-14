@@ -125,7 +125,6 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 
 		microphone.stop();
 		microphone.close();
-		encoder.dispose();
 		EventManager.unregisterListener(this);
 	}
 

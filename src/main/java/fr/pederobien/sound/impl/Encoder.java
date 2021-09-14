@@ -42,11 +42,6 @@ public class Encoder implements IEncoder {
 		return encoded;
 	}
 
-	@Override
-	public void dispose() {
-		OpusWrapper.getOpus().opus_encoder_destroy(encoder);
-	}
-
 	private byte[] fail(byte[] data) {
 		EventManager.callEvent(new EncoderFailToEncodeEvent(this, data));
 		return new byte[0];
