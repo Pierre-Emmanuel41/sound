@@ -22,8 +22,8 @@ import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 
 public class Microphone extends Thread implements IMicrophone {
-	protected static final AudioFormat FORMAT = new AudioFormat(44100.0f, 16, 1, true, false);
-	protected static final int CHUNK_SIZE = 8192;
+	protected static final AudioFormat FORMAT = new AudioFormat(48000, 16, 1, true, false);
+	protected static final int CHUNK_SIZE = 2880;
 	private boolean pauseRequested;
 	private TargetDataLine microphone;
 	private Semaphore semaphore;

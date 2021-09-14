@@ -1,5 +1,7 @@
 package fr.pederobien.sound.impl;
 
+import fr.pederobien.sound.interfaces.IDecoder;
+import fr.pederobien.sound.interfaces.IEncoder;
 import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.sound.interfaces.ISoundResourcesProvider;
@@ -37,5 +39,15 @@ public class SoundResourcesProvider implements ISoundResourcesProvider {
 	@Override
 	public IMixer getMixer() {
 		return mixer;
+	}
+
+	@Override
+	public IEncoder newEncoder() {
+		return new Encoder();
+	}
+
+	@Override
+	public IDecoder newDecoder() {
+		return new Decoder();
 	}
 }
