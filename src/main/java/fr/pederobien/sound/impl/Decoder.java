@@ -27,14 +27,12 @@ public class Decoder implements IDecoder {
 	@Override
 	public byte[] decode(byte[] data) {
 		if (!isInitialized)
-			EventManager.callEvent(new DecoderFailToDecodeEvent(this, data));
+			return fail(data);
 
 		ShortBuffer decodedBuffer = ShortBuffer.allocate(Microphone.CHUNK_SIZE);
 		int decodedLength = OpusWrapper.getOpus().opus_decode(decoder, data, data.length, decodedBuffer, Microphone.CHUNK_SIZE, 0);
-		if (decodedLength < 0) {
-			EventManager.callEvent(new DecoderFailToDecodeEvent(this, data));
-			return new byte[0];
-		}
+		if (decodedLength < 0)
+			return fail(data);
 
 		short[] decodedShort = decodedBuffer.array();
 		byte[] decoded = new byte[decodedLength * 2];
@@ -44,5 +42,10 @@ public class Decoder implements IDecoder {
 			decoded[index++] = (byte) ((decodedShort[i] >> 8) & 0xff);
 		}
 		return decoded;
+	}
+
+	private byte[] fail(byte[] data) {
+		EventManager.callEvent(new DecoderFailToDecodeEvent(this, data));
+		return new byte[0];
 	}
 }
