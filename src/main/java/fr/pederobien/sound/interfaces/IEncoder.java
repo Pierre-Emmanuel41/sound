@@ -9,5 +9,5 @@ public interface IEncoder {
 	 * 
 	 * @return The encoded bytes array.
 	 */
-	public byte[] decode(byte[] data);
+	public byte[] encode(byte[] data);
 }

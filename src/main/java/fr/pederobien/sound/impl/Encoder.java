@@ -27,20 +27,28 @@ public class Encoder implements IEncoder {
 	}
 
 	@Override
-	public byte[] decode(byte[] data) {
+	public byte[] encode(byte[] data) {
 		if (!isInitialized)
-			EventManager.callEvent(new EncoderFailToEncodeEvent(this, data));
+			return fail(data);
 
 		ShortBuffer input = ((ByteBuffer) ByteBuffer.allocateDirect(data.length).put(data).rewind()).asShortBuffer();
 		ByteBuffer encodedBuffer = ByteBuffer.allocate(2000);
 		int encodedLength = OpusWrapper.getOpus().opus_encode(encoder, input, Microphone.CHUNK_SIZE, encodedBuffer, 2000);
-		if (encodedLength < 0) {
-			EventManager.callEvent(new EncoderFailToEncodeEvent(this, data));
-			return new byte[0];
-		}
+		if (encodedLength < 0)
+			return fail(data);
 
 		byte[] encoded = new byte[encodedLength];
 		encodedBuffer.get(encoded);
 		return encoded;
+	}
+
+	@Override
+	public void dispose() {
+		OpusWrapper.getOpus().opus_encoder_destroy(encoder);
+	}
+
+	private byte[] fail(byte[] data) {
+		EventManager.callEvent(new EncoderFailToEncodeEvent(this, data));
+		return new byte[0];
 	}
 }
