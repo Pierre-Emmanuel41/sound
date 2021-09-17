@@ -142,7 +142,7 @@ public class Mixer implements IMixer {
 				data = decoder.decode(data);
 
 			if (packet.isMono())
-				data = toStereo(data, packet.getLeftVolume(), packet.getRightVolume());
+				data = toStereo(data, packet.getGlobalVolume(), packet.getLeftVolume(), packet.getRightVolume());
 
 			ByteWrapper wrapper = ByteWrapper.wrap(data);
 			while (wrapper.get().length >= 4) {
@@ -223,13 +223,13 @@ public class Mixer implements IMixer {
 			right = rightTemps;
 		}
 
-		private byte[] toStereo(byte[] mono, double leftVolume, double rightVolume) {
+		private byte[] toStereo(byte[] mono, double globalVolume, double leftVolume, double rightVolume) {
 			byte[] data = new byte[mono.length * 2];
 			int index = 0;
 			for (int i = 0; i < mono.length; i += 2) {
 				short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
-				short leftResult = (short) (((double) initialShort) * leftVolume);
-				short rightResult = (short) (((double) initialShort) * rightVolume);
+				short leftResult = (short) (((double) initialShort) * leftVolume * globalVolume);
+				short rightResult = (short) (((double) initialShort) * rightVolume * globalVolume);
 
 				data[index++] = (byte) leftResult;
 				data[index++] = (byte) (leftResult >> 8);
