@@ -1,7 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import java.util.concurrent.Semaphore;
-
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -25,12 +23,12 @@ public class Speakers extends Thread implements ISpeakers {
 	private boolean pauseRequested;
 	private Mixer mixer;
 	private SourceDataLine speakers;
-	private Semaphore semaphore;
+	private Object mutex;
 
 	protected Speakers(Mixer mixer) {
 		super("SpeakerThread");
 		this.mixer = mixer;
-		semaphore = new Semaphore(1, true);
+		mutex = new Object();
 		setDaemon(true);
 	}
 
@@ -61,60 +59,51 @@ public class Speakers extends Thread implements ISpeakers {
 		long lastUpdate = System.nanoTime();
 		// keep running until told to stop
 		while (!isInterrupted()) {
-			try {
-				semaphore.acquire();
-				// check the time
-				long currTime = System.nanoTime();
-				// accrue frames
-				double delta = currTime - lastUpdate;
-				double secDelta = (delta / 1000000000L);
-				framesAccrued += secDelta * FORMAT.getFrameRate();
-				// read frames if needed
-				int framesToRead = (int) framesAccrued;
-				int framesToSkip = 0;
-				// check if we need to skip frames to catch up
-				if (framesToRead > maxFramesPerUpdate) {
-					framesToSkip = framesToRead - maxFramesPerUpdate;
-					framesToRead = maxFramesPerUpdate;
+			// check the time
+			long currTime = System.nanoTime();
+			// accrue frames
+			double delta = currTime - lastUpdate;
+			double secDelta = (delta / 1000000000L);
+			framesAccrued += secDelta * FORMAT.getFrameRate();
+			// read frames if needed
+			int framesToRead = (int) framesAccrued;
+			int framesToSkip = 0;
+			// check if we need to skip frames to catch up
+			if (framesToRead > maxFramesPerUpdate) {
+				framesToSkip = framesToRead - maxFramesPerUpdate;
+				framesToRead = maxFramesPerUpdate;
+			}
+			// skip frames
+			if (framesToSkip > 0) {
+				int bytesToSkip = framesToSkip * FORMAT.getFrameSize();
+				mixer.skip(bytesToSkip);
+			}
+			// read frames
+			if (framesToRead > 0) {
+				// read from the mixer
+				int bytesToRead = framesToRead * FORMAT.getFrameSize();
+				int tmpBytesRead = mixer.read(audioBuffer, numBytesRead, bytesToRead);
+				numBytesRead += tmpBytesRead; // mark how many read
+				// fill rest with zeroes
+				int remaining = bytesToRead - tmpBytesRead;
+				for (int i = 0; i < remaining; i++) {
+					audioBuffer[numBytesRead + i] = 0;
 				}
-				// skip frames
-				if (framesToSkip > 0) {
-					int bytesToSkip = framesToSkip * FORMAT.getFrameSize();
-					mixer.skip(bytesToSkip);
-				}
-				// read frames
-				if (framesToRead > 0) {
-					// read from the mixer
-					int bytesToRead = framesToRead * FORMAT.getFrameSize();
-					int tmpBytesRead = mixer.read(audioBuffer, numBytesRead, bytesToRead);
-					numBytesRead += tmpBytesRead; // mark how many read
-					// fill rest with zeroes
-					int remaining = bytesToRead - tmpBytesRead;
-					for (int i = 0; i < remaining; i++) {
-						audioBuffer[numBytesRead + i] = 0;
-					}
-					numBytesRead += remaining; // mark zeroes read
-				}
-				// mark frames read and skipped
-				framesAccrued -= (framesToRead + framesToSkip);
-				// write to speakers
-				if (numBytesRead > 0) {
-					EventManager.callEvent(new SpeakersDataReadEvent(this, audioBuffer));
-					speakers.write(audioBuffer, 0, numBytesRead);
-					numBytesRead = 0;
-				}
-				// mark last update
-				lastUpdate = currTime;
+				numBytesRead += remaining; // mark zeroes read
+			}
+			// mark frames read and skipped
+			framesAccrued -= (framesToRead + framesToSkip);
+			// write to speakers
+			if (numBytesRead > 0) {
+				EventManager.callEvent(new SpeakersDataReadEvent(this, audioBuffer));
+				speakers.write(audioBuffer, 0, numBytesRead);
+				numBytesRead = 0;
+			}
+			// mark last update
+			lastUpdate = currTime;
 
-				if (pauseRequested) {
-					semaphore.release();
-					Thread.sleep(100);
-					continue;
-				}
-
-				semaphore.release();
-			} catch (InterruptedException e) {
-				// do nothing
+			if (pauseRequested) {
+				sleep();
 			}
 		}
 	}
@@ -134,14 +123,9 @@ public class Speakers extends Thread implements ISpeakers {
 	@Override
 	public void pause() {
 		EventManager.callEvent(new SpeakersPausePreEvent(this), () -> {
-			try {
-				pauseRequested = true;
-				EventManager.callEvent(new SpeakersPausePostEvent(this));
-				semaphore.acquire();
-				speakers.flush();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			pauseRequested = true;
+			speakers.flush();
+			EventManager.callEvent(new SpeakersPausePostEvent(this));
 		});
 	}
 
@@ -149,8 +133,20 @@ public class Speakers extends Thread implements ISpeakers {
 	public void relaunch() {
 		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), () -> {
 			pauseRequested = false;
-			semaphore.release();
+			synchronized (mutex) {
+				mutex.notify();
+			}
 			EventManager.callEvent(new SpeakersRelaunchPostEvent(this));
 		});
+	}
+
+	private void sleep() {
+		synchronized (mutex) {
+			try {
+				mutex.wait();
+			} catch (InterruptedException e) {
+				// Do nothing
+			}
+		}
 	}
 }

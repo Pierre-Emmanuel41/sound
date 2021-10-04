@@ -1,7 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import java.util.concurrent.Semaphore;
-
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -31,7 +29,7 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	private static int MAX_NEGATIVE_AMPLITUDE = 0x8000;
 	private boolean pauseRequested, isInterrupted;
 	private TargetDataLine microphone;
-	private Semaphore semaphore;
+	private Object mutex;
 	private IEncoder encoder;
 
 	static {
@@ -42,7 +40,7 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 		super("Microphone");
 
 		EventManager.registerListener(this);
-		semaphore = new Semaphore(1, true);
+		mutex = new Object();
 		encoder = new Encoder();
 		setDaemon(true);
 	}
@@ -95,15 +93,11 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 		microphone.start();
 		while (!isInterrupted()) {
 			try {
-				semaphore.acquire();
 				byte[] data = new byte[CHUNK_SIZE * 2];
 				final int numBytesRead = microphone.read(data, 0, data.length);
 
-				if (pauseRequested) {
-					semaphore.release();
-					Thread.sleep(100);
-					continue;
-				}
+				if (pauseRequested)
+					sleep();
 
 				if (numBytesRead != data.length)
 					data = ByteWrapper.wrap(data).extract(0, numBytesRead);
@@ -115,9 +109,6 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 				byte[] encoded = encoder.encode(data);
 				if (encoded.length > 0)
 					EventManager.callEvent(new MicrophoneDataEncodedEvent(this, data, encoded));
-				semaphore.release();
-			} catch (InterruptedException e) {
-				break;
 			} catch (Error e) {
 				e.printStackTrace();
 			}
@@ -132,12 +123,7 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	public void pause() {
 		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> {
 			pauseRequested = true;
-			try {
-				EventManager.callEvent(new MicrophonePausePostEvent(this));
-				semaphore.acquire();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			EventManager.callEvent(new MicrophonePausePostEvent(this));
 		});
 	}
 
@@ -145,8 +131,20 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	public void relaunch() {
 		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), () -> {
 			pauseRequested = false;
-			semaphore.release();
+			synchronized (mutex) {
+				mutex.notify();
+			}
 			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
 		});
+	}
+
+	private void sleep() {
+		synchronized (mutex) {
+			try {
+				mutex.wait();
+			} catch (InterruptedException e) {
+				// Do nothing
+			}
+		}
 	}
 }
