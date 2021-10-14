@@ -1,6 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
@@ -22,8 +21,6 @@ import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 
 public class Microphone extends Thread implements IMicrophone, IEventListener {
-	protected static final AudioFormat FORMAT = new AudioFormat(48000, 16, 1, true, false);
-	protected static final int CHUNK_SIZE = 2880;
 	private static int N_SHORTS = 0xffff;
 	private static final short[] VOLUME_NORM_LUT = new short[N_SHORTS];
 	private static int MAX_NEGATIVE_AMPLITUDE = 0x8000;
@@ -69,8 +66,8 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	public void start() {
 		EventManager.callEvent(new MicrophoneStartPreEvent(this), () -> {
 			try {
-				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, FORMAT));
-				microphone.open(FORMAT);
+				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
+				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
 				EventManager.callEvent(new MicrophoneStartPostEvent(this));
 				super.start();
 			} catch (LineUnavailableException e) {
@@ -93,7 +90,7 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 		microphone.start();
 		while (!isInterrupted()) {
 			try {
-				byte[] data = new byte[CHUNK_SIZE * 2];
+				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
 				final int numBytesRead = microphone.read(data, 0, data.length);
 
 				if (pauseRequested)

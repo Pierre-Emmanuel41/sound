@@ -19,7 +19,7 @@ public class Encoder implements IEncoder {
 
 	protected Encoder() {
 		IntBuffer error = IntBuffer.allocate(4).put(0);
-		encoder = OpusWrapper.getOpus().opus_encoder_create((int) Microphone.FORMAT.getSampleRate(), Microphone.FORMAT.getChannels(), Opus.OPUS_APPLICATION_VOIP, error);
+		encoder = OpusWrapper.getOpus().opus_encoder_create((int) SoundConstants.SAMPLE_RATE, SoundConstants.MICRO_CHANNELS_NUMBER, Opus.OPUS_APPLICATION_VOIP, error);
 		if (error.get() < 0)
 			EventManager.callEvent(new EncoderInitializationFailEvent(this));
 		else
@@ -28,18 +28,22 @@ public class Encoder implements IEncoder {
 
 	@Override
 	public byte[] encode(byte[] data) {
-		if (!isInitialized)
-			return fail(data);
+		try {
+			if (!isInitialized)
+				return fail(data);
 
-		ShortBuffer input = ((ByteBuffer) ByteBuffer.allocateDirect(data.length).put(data).rewind()).asShortBuffer();
-		ByteBuffer encodedBuffer = ByteBuffer.allocate(2000);
-		int encodedLength = OpusWrapper.getOpus().opus_encode(encoder, input, Microphone.CHUNK_SIZE, encodedBuffer, 2000);
-		if (encodedLength < 0)
-			return fail(data);
+			ShortBuffer input = ((ByteBuffer) ByteBuffer.allocateDirect(data.length).put(data).rewind()).asShortBuffer();
+			ByteBuffer encodedBuffer = ByteBuffer.allocate(2000);
+			int encodedLength = OpusWrapper.getOpus().opus_encode(encoder, input, SoundConstants.CHUNK_LENGTH, encodedBuffer, 2000);
+			if (encodedLength < 0)
+				return fail(data);
 
-		byte[] encoded = new byte[encodedLength];
-		encodedBuffer.get(encoded);
-		return encoded;
+			byte[] encoded = new byte[encodedLength];
+			encodedBuffer.get(encoded);
+			return encoded;
+		} catch (Exception e) {
+			return fail(data);
+		}
 	}
 
 	private byte[] fail(byte[] data) {
