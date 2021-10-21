@@ -5,6 +5,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.TargetDataLine;
 
+import fr.pederobien.sound.event.EncoderFailToEncodeEvent;
 import fr.pederobien.sound.event.MicrophoneDataEncodedEvent;
 import fr.pederobien.sound.event.MicrophoneInterruptPostEvent;
 import fr.pederobien.sound.event.MicrophoneInterruptPreEvent;
@@ -17,9 +18,11 @@ import fr.pederobien.sound.event.MicrophoneStartPreEvent;
 import fr.pederobien.sound.interfaces.IEncoder;
 import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.utils.ByteWrapper;
+import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 
-public class Microphone extends Thread implements IMicrophone {
+public class Microphone extends Thread implements IMicrophone, IEventListener {
 	private static int N_SHORTS = 0xffff;
 	private static final short[] VOLUME_NORM_LUT = new short[N_SHORTS];
 	private static int MAX_NEGATIVE_AMPLITUDE = 0x8000;
@@ -37,6 +40,7 @@ public class Microphone extends Thread implements IMicrophone {
 
 		mutex = new Object();
 		encoder = new Encoder();
+		EventManager.registerListener(this);
 		setDaemon(true);
 	}
 
@@ -110,6 +114,11 @@ public class Microphone extends Thread implements IMicrophone {
 			}
 			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
 		});
+	}
+
+	@EventHandler
+	private void onEncodeFail(EncoderFailToEncodeEvent event) {
+		System.err.println("[Microphone] Fail to encode bytes array");
 	}
 
 	private void normalizeVolume(byte[] audioSamples) {

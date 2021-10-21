@@ -54,7 +54,6 @@ public class AudioStream implements IEventListener {
 		if (samples.isEmpty())
 			return 0;
 
-		// AsyncConsole.print("[AudioStream] Reading %s bytes", length);
 		int read = 0, index = 0;
 		// Iterating on samples in order to read the right number of bytes if it is possible.
 		while (read < length) {
@@ -121,7 +120,7 @@ public class AudioStream implements IEventListener {
 
 	@EventHandler
 	private void onDecodeFail(DecoderFailToDecodeEvent event) {
-		System.err.println("Fail to decode bytes array");
+		System.err.println("[AudioStream] Fail to decode bytes array");
 	}
 
 	/**

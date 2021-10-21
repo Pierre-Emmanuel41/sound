@@ -54,14 +54,17 @@ public class Speakers extends Thread implements ISpeakers {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);
 
+				// Pause request while waiting for data, if data has been received, then ignore.
+				if (pauseRequested) {
+					sleep();
+					continue;
+				}
+
 				if (read != data.length)
 					data = ByteWrapper.wrap(data).extract(0, read);
 
 				EventManager.callEvent(new SpeakersDataReadEvent(this, data));
 				speakers.write(data, 0, read);
-
-				if (pauseRequested)
-					sleep();
 
 				Thread.sleep(5);
 			} catch (Exception e) {
