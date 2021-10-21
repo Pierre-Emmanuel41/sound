@@ -3,21 +3,25 @@ package fr.pederobien.sound.impl;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
-import fr.pederobien.sound.interfaces.IDecoder;
 import fr.pederobien.sound.interfaces.IMixer;
-import fr.pederobien.utils.ByteWrapper;
 
 public class Mixer implements IMixer {
-	private Map<String, Sound> sounds;
+	private static final int BUFFERED_SAMPLES_SIZE = 5;
+	private Map<String, AudioStream> streams;
 	private double globalVolume;
-	private Object mutex;
+	private ReentrantLock lock;
+	private Condition notEmpty;
 
-	protected Mixer() {
-		sounds = new HashMap<String, Sound>();
+	public Mixer() {
+		streams = new HashMap<String, AudioStream>();
 		globalVolume = 1.0;
-		mutex = new Object();
+		lock = new ReentrantLock(true);
+		notEmpty = lock.newCondition();
 	}
 
 	@Override
@@ -27,217 +31,217 @@ public class Mixer implements IMixer {
 
 	@Override
 	public void setGlobalVolume(double globalVolume) {
-		this.globalVolume = globalVolume < 0 ? 0 : globalVolume;
+		this.globalVolume = globalVolume;
 	}
 
 	@Override
 	public void put(AudioPacket packet) {
-		Sound sound = sounds.get(packet.getKey());
-		if (sound == null) {
-			sound = new Sound();
-			synchronized (mutex) {
-				sounds.put(packet.getKey(), sound);
-			}
+		AudioStream stream = getStream(packet.getKey());
+		if (stream == null) {
+			stream = new AudioStream();
+			putStream(packet.getKey(), stream);
 		}
 
-		sound.extract(packet);
+		stream.extract(packet);
+		if (stream.size() > BUFFERED_SAMPLES_SIZE) {
+			lock.lock();
+			try {
+				notEmpty.signal();
+			} finally {
+				lock.unlock();
+			}
+		}
 	}
 
 	/**
-	 * Read bytes from this Mixer.
+	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
+	 * <p>
+	 * There is no registered streams. </br>
+	 * For each registered stream, all of the audio samples have been read.</br>
 	 * 
-	 * @param data   the buffer to read the bytes into.
-	 * @param offset the start index to read bytes into.
-	 * @param length the maximum number of bytes that should be read.
-	 * @return number of bytes read into buffer.
+	 * @param data   The buffer to read the bytes into.
+	 * @param offset The start index to read bytes into.
+	 * @param length The maximum number of bytes that should be read.
+	 * 
+	 * @return The number of bytes read into buffer.
 	 */
 	protected int read(byte[] data, int offset, int length) {
-		// ************************************************//
-		// assume little-endian, stereo, 16-bit, signed PCM//
-		// ************************************************//
-		int numRead = 0;
-		boolean bytesRead = true; // terminate early if out of bytes
-		for (int i = offset; i < (length + offset) && bytesRead; i += 4) {
-			// first assume we are done
-			bytesRead = false;
-			// need to track value across audio sources
-			double leftValue = 0.0;
-			double rightValue = 0.0;
+		List<int[]> streamBuffers = new ArrayList<int[]>();
+		int[] read = new int[1];
 
-			Iterator<Sound> iterator;
-			synchronized (mutex) {
-				iterator = new ArrayList<Sound>(sounds.values()).iterator();
-			}
+		// Needs to wait for a stream to be registered.
+		if (streams.isEmpty() && sleep())
+			return 0;
 
-			while (iterator.hasNext()) {
-				Sound sound = iterator.next();
+		// Step 1: reading n bytes from each registered stream.
+		streamBuffers = readStreams(length);
 
-				int[] buffer = new int[2];
-				sound.fillTwoBytes(buffer);
-				double volume = 1.0 * this.globalVolume;
-				double leftCurr = (buffer[0] * volume);
-				double rightCurr = (buffer[1] * volume);
-				// update the final left and right channels
-				leftValue += leftCurr;
-				rightValue += rightCurr;
-				// we know we aren't done yet now
-				bytesRead = true;
-			}
-
-			// if we actually read bytes, store in the buffer
-			if (bytesRead) {
-				int finalLeftValue = (int) leftValue;
-				int finalRightValue = (int) rightValue;
-				// clipping
-				if (finalLeftValue > Short.MAX_VALUE) {
-					finalLeftValue = Short.MAX_VALUE;
-				} else if (finalLeftValue < Short.MIN_VALUE) {
-					finalLeftValue = Short.MIN_VALUE;
-				}
-				if (finalRightValue > Short.MAX_VALUE) {
-					finalRightValue = Short.MAX_VALUE;
-				} else if (finalRightValue < Short.MIN_VALUE) {
-					finalRightValue = Short.MIN_VALUE;
-				}
-				// left channel bytes
-				data[i + 1] = (byte) ((finalLeftValue >> 8) & 0xFF); // MSB
-				data[i] = (byte) (finalLeftValue & 0xFF); // LSB
-				// then right channel bytes
-				data[i + 3] = (byte) ((finalRightValue >> 8) & 0xFF); // MSB
-				data[i + 2] = (byte) (finalRightValue & 0xFF); // LSB
-				numRead += 4;
-			}
+		// Step 2: Merging buffers.
+		if (!mergeStreams(data, offset, length, streamBuffers, read)) {
+			if (sleep())
+				return 0;
+			else
+				readAndMergeStreams(data, offset, length);
 		}
-		return numRead;
+		return read[0];
 	}
 
 	/**
-	 * Skip specified number of bytes of all audio in this Mixer.
+	 * Read bytes from each registered streams.
 	 * 
-	 * @param numBytes the number of bytes to skip
+	 * @param length The number of bytes to read.
+	 * 
+	 * @return A list that contains the read array associated to each stream.
 	 */
-	protected void skip(int numBytes) {
-		Iterator<Sound> iterator = sounds.values().iterator();
+	private List<int[]> readStreams(int length) {
+		List<int[]> streamBuffers = new ArrayList<int[]>();
+
+		Iterator<AudioStream> iterator;
+		lock.lock();
+		try {
+			iterator = new ArrayList<AudioStream>(streams.values()).iterator();
+		} finally {
+			lock.unlock();
+		}
+
+		// Iterating over a copy of the stream collection in order to put samples in a stream while reading
 		while (iterator.hasNext()) {
-			iterator.next().skip(numBytes);
+			// Two bytes for one integer.
+			int[] buffer = new int[length / 2];
+			int size = iterator.next().read(buffer, buffer.length);
+
+			if (size == length) {
+				streamBuffers.add(buffer);
+				continue;
+			}
+
+			// Fitting the array with the number of read bytes.
+			int[] streamBuffer = new int[size];
+			System.arraycopy(buffer, 0, streamBuffer, 0, size);
+			streamBuffers.add(streamBuffer);
+		}
+
+		return streamBuffers;
+	}
+
+	/**
+	 * Merge each integers array registered in the <code>streamBuffers</code> list in order to create one bytes array that contains
+	 * the sum of each registered stream.
+	 * 
+	 * @param data          The buffer to read the bytes into.
+	 * @param offset        The start index to read bytes into.
+	 * @param length        The maximum number of bytes that should be read.
+	 * @param streamBuffers The list that contains the data of each registered stream.
+	 * @param read          An integer array that contains only one value which is the number of read bytes.
+	 * 
+	 * @return True if bytes has been read, false otherwise.
+	 */
+	private boolean mergeStreams(byte[] data, int offset, int length, List<int[]> streamBuffers, int[] read) {
+		int currentLeft, currentRight, bufferIndex = 0;
+		boolean bytesRead = false;
+		for (int index = offset; index < length; index += 4) {
+			// New temporal step so initialization
+			currentLeft = 0;
+			currentRight = 0;
+			// Summing the value from each stream
+			for (int[] buffer : streamBuffers) {
+				try {
+					currentLeft += buffer[bufferIndex] * globalVolume;
+					currentRight += buffer[bufferIndex + 1] * globalVolume;
+					bytesRead = true;
+				} catch (IndexOutOfBoundsException e) {
+					// Exception thrown when there was not enough registered bytes in the stream.
+					// No need to keep reading the current buffer.
+					continue;
+				}
+			}
+
+			// If no bytes has been read, then no need to go further.
+			if (!bytesRead)
+				return false;
+
+			// Clipping
+			currentLeft = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, currentLeft));
+			currentRight = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, currentRight));
+
+			// left channel bytes
+			data[index + 1] = (byte) ((currentLeft >> 8) & 0xFF); // MSB
+			data[index] = (byte) (currentLeft & 0xFF); // LSB
+			// then right channel bytes
+			data[index + 3] = (byte) ((currentRight >> 8) & 0xFF); // MSB
+			data[index + 2] = (byte) (currentRight & 0xFF); // LSB
+
+			// Updating the number of read bytes
+			read[0] += 4;
+
+			bufferIndex += 2;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Read n bytes with n equals <code>length</code> and update the given <code>data</code> array. This method does not blocks. It is
+	 * assumed that calling this methods means there are registered streams and at least one stream contains data to read.
+	 * 
+	 * @param data   The buffer to read the bytes into.
+	 * @param offset The start index to read bytes into.
+	 * @param length The maximum number of bytes that should be read.
+	 * 
+	 * @return The number of bytes read into buffer.
+	 */
+	private int readAndMergeStreams(byte[] data, int offset, int length) {
+		List<int[]> streamBuffers = readStreams(length);
+		int[] read = new int[1];
+		mergeStreams(data, offset, length, streamBuffers, read);
+		return read[0];
+	}
+
+	/**
+	 * Sleep until the condition <code>empty</code> is notified.
+	 * 
+	 * @return true If an {@link InterruptedException} is thrown while waiting, false otherwise.
+	 */
+	private boolean sleep() {
+		lock.lock();
+		try {
+			notEmpty.await();
+			return false;
+		} catch (InterruptedException e) {
+			return true;
+		} finally {
+			lock.unlock();
 		}
 	}
 
-	private class Sound {
-		private IDecoder decoder;
-		private byte[] left, right;
-		private Object mutex;
-
-		public Sound() {
-			decoder = new Decoder();
-			left = new byte[0];
-			right = new byte[0];
-			mutex = new Object();
+	/**
+	 * Thread safe operation in order to get the stream associated to the given key.
+	 * 
+	 * @param key The key used to get the associated audio stream.
+	 * 
+	 * @return The audio stream if registered, null otherwise.
+	 */
+	private AudioStream getStream(String key) {
+		lock.lock();
+		try {
+			return streams.get(key);
+		} finally {
+			lock.unlock();
 		}
+	}
 
-		public void extract(AudioPacket packet) {
-			byte[] data = packet.getData();
-
-			if (packet.isEncoded())
-				data = decoder.decode(data);
-
-			if (packet.isMono())
-				data = toStereo(data, packet.getGlobalVolume(), packet.getLeftVolume(), packet.getRightVolume());
-
-			ByteWrapper wrapper = ByteWrapper.wrap(data);
-			while (wrapper.get().length >= 4) {
-				synchronized (mutex) {
-					putLeft(wrapper.take(0, 2));
-					putRight(wrapper.take(0, 2));
-				}
-			}
-		}
-
-		public void fillTwoBytes(int[] data) {
-			if (left.length < 2 || right.length < 2)
-				return;
-
-			byte[] leftBytes, rightBytes;
-			synchronized (mutex) {
-				leftBytes = takeLeft(2);
-				rightBytes = takeRight(2);
-			}
-
-			// left
-			data[0] = ((leftBytes[1] << 8) | (leftBytes[0] & 0xFF));
-			// right
-			data[1] = ((rightBytes[1] << 8) | (rightBytes[0] & 0xFF));
-		}
-
-		public void skip(int numBytes) {
-			if (left.length < numBytes || right.length < numBytes)
-				return;
-
-			synchronized (mutex) {
-				removeLeft(numBytes);
-				removeRight(numBytes);
-			}
-		}
-
-		private void putLeft(byte[] data) {
-			byte[] intermediate = new byte[left.length + data.length];
-			System.arraycopy(left, 0, intermediate, 0, left.length);
-			System.arraycopy(data, 0, intermediate, left.length, data.length);
-			left = intermediate;
-		}
-
-		private void putRight(byte[] data) {
-			byte[] intermediate = new byte[right.length + data.length];
-			System.arraycopy(right, 0, intermediate, 0, right.length);
-			System.arraycopy(data, 0, intermediate, right.length, data.length);
-			right = intermediate;
-		}
-
-		private byte[] takeLeft(int length) {
-			byte[] leftTemps = new byte[left.length - length];
-			byte[] toReturn = new byte[length];
-			System.arraycopy(left, 0, toReturn, 0, length);
-			System.arraycopy(left, length, leftTemps, 0, leftTemps.length);
-			left = leftTemps;
-			return toReturn;
-		}
-
-		private byte[] takeRight(int length) {
-			byte[] rightTemps = new byte[right.length - length];
-			byte[] toReturn = new byte[length];
-			System.arraycopy(right, 0, toReturn, 0, length);
-			System.arraycopy(right, length, rightTemps, 0, rightTemps.length);
-			right = rightTemps;
-			return toReturn;
-		}
-
-		private void removeLeft(int length) {
-			byte[] leftTemps = new byte[left.length - length];
-			System.arraycopy(left, length, leftTemps, 0, leftTemps.length);
-			left = leftTemps;
-		}
-
-		private void removeRight(int length) {
-			byte[] rightTemps = new byte[right.length - length];
-			System.arraycopy(right, length, rightTemps, 0, rightTemps.length);
-			right = rightTemps;
-		}
-
-		private byte[] toStereo(byte[] mono, double globalVolume, double leftVolume, double rightVolume) {
-			byte[] data = new byte[mono.length * 2];
-			int index = 0;
-			for (int i = 0; i < mono.length; i += 2) {
-				short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
-				short leftResult = (short) (((double) initialShort) * leftVolume * globalVolume);
-				short rightResult = (short) (((double) initialShort) * rightVolume * globalVolume);
-
-				data[index++] = (byte) leftResult;
-				data[index++] = (byte) (leftResult >> 8);
-				data[index++] = (byte) rightResult;
-				data[index++] = (byte) (rightResult >> 8);
-			}
-
-			return data;
+	/**
+	 * Register the given audio stream with the specified key.
+	 * 
+	 * @param key    The key used to retrieve the audio stream.
+	 * @param stream The stream associated to the key.
+	 */
+	private void putStream(String key, AudioStream stream) {
+		lock.lock();
+		try {
+			streams.put(key, stream);
+		} finally {
+			lock.unlock();
 		}
 	}
 }

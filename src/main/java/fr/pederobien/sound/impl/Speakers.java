@@ -1,6 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
@@ -16,14 +15,14 @@ import fr.pederobien.sound.event.SpeakersRelaunchPreEvent;
 import fr.pederobien.sound.event.SpeakersStartPostEvent;
 import fr.pederobien.sound.event.SpeakersStartPreEvent;
 import fr.pederobien.sound.interfaces.ISpeakers;
+import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 
 public class Speakers extends Thread implements ISpeakers {
-	private static AudioFormat FORMAT = new AudioFormat(48000, 16, 2, true, false);
-	private boolean pauseRequested;
-	private Mixer mixer;
 	private SourceDataLine speakers;
+	private Mixer mixer;
 	private Object mutex;
+	private boolean pauseRequested;
 
 	protected Speakers(Mixer mixer) {
 		super("SpeakerThread");
@@ -36,8 +35,8 @@ public class Speakers extends Thread implements ISpeakers {
 	public void start() {
 		EventManager.callEvent(new SpeakersStartPreEvent(this), () -> {
 			try {
-				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, FORMAT));
-				speakers.open(FORMAT);
+				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
+				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
 				EventManager.callEvent(new SpeakersStartPostEvent(this));
 				super.start();
 			} catch (LineUnavailableException e) {
@@ -49,61 +48,25 @@ public class Speakers extends Thread implements ISpeakers {
 	@Override
 	public void run() {
 		speakers.start();
-		// 1-sec buffer
-		int bufSize = (int) FORMAT.getFrameRate() * FORMAT.getFrameSize();
-		byte[] audioBuffer = new byte[bufSize];
-		// only buffer some maximum number of frames each update (25ms)
-		int maxFramesPerUpdate = (int) ((FORMAT.getFrameRate() / 1000) * 25);
-		int numBytesRead = 0;
-		double framesAccrued = 0;
-		long lastUpdate = System.nanoTime();
-		// keep running until told to stop
-		while (!isInterrupted()) {
-			// check the time
-			long currTime = System.nanoTime();
-			// accrue frames
-			double delta = currTime - lastUpdate;
-			double secDelta = (delta / 1000000000L);
-			framesAccrued += secDelta * FORMAT.getFrameRate();
-			// read frames if needed
-			int framesToRead = (int) framesAccrued;
-			int framesToSkip = 0;
-			// check if we need to skip frames to catch up
-			if (framesToRead > maxFramesPerUpdate) {
-				framesToSkip = framesToRead - maxFramesPerUpdate;
-				framesToRead = maxFramesPerUpdate;
-			}
-			// skip frames
-			if (framesToSkip > 0) {
-				int bytesToSkip = framesToSkip * FORMAT.getFrameSize();
-				mixer.skip(bytesToSkip);
-			}
-			// read frames
-			if (framesToRead > 0) {
-				// read from the mixer
-				int bytesToRead = framesToRead * FORMAT.getFrameSize();
-				int tmpBytesRead = mixer.read(audioBuffer, numBytesRead, bytesToRead);
-				numBytesRead += tmpBytesRead; // mark how many read
-				// fill rest with zeroes
-				int remaining = bytesToRead - tmpBytesRead;
-				for (int i = 0; i < remaining; i++) {
-					audioBuffer[numBytesRead + i] = 0;
-				}
-				numBytesRead += remaining; // mark zeroes read
-			}
-			// mark frames read and skipped
-			framesAccrued -= (framesToRead + framesToSkip);
-			// write to speakers
-			if (numBytesRead > 0) {
-				EventManager.callEvent(new SpeakersDataReadEvent(this, audioBuffer));
-				speakers.write(audioBuffer, 0, numBytesRead);
-				numBytesRead = 0;
-			}
-			// mark last update
-			lastUpdate = currTime;
 
-			if (pauseRequested) {
-				sleep();
+		while (!isInterrupted()) {
+			try {
+				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
+				int read = mixer.read(data, 0, data.length);
+
+				if (read != data.length)
+					data = ByteWrapper.wrap(data).extract(0, read);
+
+				EventManager.callEvent(new SpeakersDataReadEvent(this, data));
+				speakers.write(data, 0, read);
+
+				if (pauseRequested)
+					sleep();
+
+				Thread.sleep(5);
+			} catch (Exception e) {
+				// In order to avoid to stop the speakers thread when an exception occurs while reading bytes.
+				e.printStackTrace();
 			}
 		}
 	}
