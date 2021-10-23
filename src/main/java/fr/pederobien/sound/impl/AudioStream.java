@@ -59,7 +59,7 @@ public class AudioStream implements IEventListener {
 		while (read < length) {
 			try {
 				AudioSample sample = getSample(index++);
-				read += sample.read(buffer, read, length - read, index < samples.size() ? samples.get(index) : null);
+				read += sample.read(buffer, read, length - read);
 
 				// Checking if the sample need to be removed at the end of the iteration.
 				if (sample.isRead())
@@ -131,6 +131,8 @@ public class AudioStream implements IEventListener {
 	private void addSample(AudioSample sample) {
 		lock.lock();
 		try {
+			if (!samples.isEmpty())
+				samples.get(samples.size() - 1).setNext(sample);
 			samples.add(sample);
 			size++;
 		} finally {

@@ -6,6 +6,8 @@ public class AudioSample {
 	private double global, left, right;
 	private int position;
 	private boolean logisticsApplied;
+	private Logistic globalLogistic, leftLogistic, rightLogistic;
+	private AudioSample next;
 
 	/**
 	 * Creates an audio sample based on the given bytes array.
@@ -27,10 +29,9 @@ public class AudioSample {
 	 * @param buffer A byte array that will contain the requested input data when this method returns.
 	 * @param offset The offset from the beginning of the array, in bytes.
 	 * @param length The requested number of bytes to read.
-	 * @param next   The next audio sample in order to perform the sound volume passage.
 	 * @return The number of bytes actually read.
 	 */
-	public int read(int[] buffer, int offset, int length, AudioSample next) {
+	public int read(int[] buffer, int offset, int length) {
 		if (isRead())
 			return 0;
 
@@ -39,13 +40,6 @@ public class AudioSample {
 		// The number of bytes to read exceeds the size of the bytes array from the position value.
 		if (position + length >= data.length)
 			read = data.length - position;
-
-		Logistic globalLogistic = null, leftLogistic = null, rightLogistic = null;
-		if (next != null) {
-			globalLogistic = new Logistic(global, next.getGlobal(), 1.0);
-			leftLogistic = new Logistic(left, next.getLeft(), 1.0);
-			rightLogistic = new Logistic(right, next.getRight(), 1.0);
-		}
 
 		for (int i = offset; i < read; i += 2) {
 			// Transforming bytes to short value
@@ -81,39 +75,6 @@ public class AudioSample {
 			next.applyLogistics(globalLogistic, leftLogistic, rightLogistic);
 
 		return read;
-	}
-
-	private void applyLogistics(Logistic globalLogistic, Logistic leftLogistic, Logistic rightLogistic) {
-		if (logisticsApplied)
-			return;
-
-		for (int i = 0; i < data.length / 2; i += 4) {
-			// Transforming bytes to short value
-			short leftValue = toShort(data[i + 1], data[i]);
-			short rightValue = toShort(data[i + 3], data[i + 2]);
-
-			// Evolution range, needs to apply logistics functions
-			if (i < LOGISTICS_RANGE) {
-				// Computing once for optimization.
-				double logisticIndex = i / 20.0;
-				double sampleGlobal = globalLogistic.value(logisticIndex);
-
-				leftValue = (short) (leftValue * sampleGlobal * leftLogistic.value(logisticIndex));
-				rightValue = (short) (rightValue * sampleGlobal * rightLogistic.value(logisticIndex));
-			} else {
-				leftValue = (short) (leftValue * global * left);
-				rightValue = (short) (rightValue * global * right);
-			}
-
-			// left channel bytes
-			data[i + 1] = (byte) ((leftValue >> 8) & 0xFF); // MSB
-			data[i] = (byte) (leftValue & 0xFF); // LSB
-			// then right channel bytes
-			data[i + 3] = (byte) ((rightValue >> 8) & 0xFF); // MSB
-			data[i + 2] = (byte) (rightValue & 0xFF); // LSB
-		}
-
-		logisticsApplied = true;
 	}
 
 	/**
@@ -159,6 +120,18 @@ public class AudioSample {
 	}
 
 	/**
+	 * Set the next audio sample of this sample. It creates logistic function in order to make the volume transition continuous.
+	 * 
+	 * @param next The next audio sample of this sample.
+	 */
+	public void setNext(AudioSample next) {
+		this.next = next;
+		globalLogistic = new Logistic(global, next.getGlobal(), 1.0);
+		leftLogistic = new Logistic(left, next.getLeft(), 1.0);
+		rightLogistic = new Logistic(right, next.getRight(), 1.0);
+	}
+
+	/**
 	 * @return True if at the current reading position the sound volume has already been performed.
 	 */
 	private boolean isSoundVolumeAlreadyPerformed() {
@@ -175,6 +148,39 @@ public class AudioSample {
 	 */
 	private short toShort(byte msb, byte lsb) {
 		return (short) ((msb << 8) | (lsb & 0xFF));
+	}
+
+	private void applyLogistics(Logistic globalLogistic, Logistic leftLogistic, Logistic rightLogistic) {
+		if (logisticsApplied)
+			return;
+
+		for (int i = 0; i < data.length / 2; i += 4) {
+			// Transforming bytes to short value
+			short leftValue = toShort(data[i + 1], data[i]);
+			short rightValue = toShort(data[i + 3], data[i + 2]);
+
+			// Evolution range, needs to apply logistics functions
+			if (i < LOGISTICS_RANGE) {
+				// Computing once for optimization.
+				double logisticIndex = i / 20.0;
+				double sampleGlobal = globalLogistic.value(logisticIndex);
+
+				leftValue = (short) (leftValue * sampleGlobal * leftLogistic.value(logisticIndex));
+				rightValue = (short) (rightValue * sampleGlobal * rightLogistic.value(logisticIndex));
+			} else {
+				leftValue = (short) (leftValue * global * left);
+				rightValue = (short) (rightValue * global * right);
+			}
+
+			// left channel bytes
+			data[i + 1] = (byte) ((leftValue >> 8) & 0xFF); // MSB
+			data[i] = (byte) (leftValue & 0xFF); // LSB
+			// then right channel bytes
+			data[i + 3] = (byte) ((rightValue >> 8) & 0xFF); // MSB
+			data[i + 2] = (byte) (rightValue & 0xFF); // LSB
+		}
+
+		logisticsApplied = true;
 	}
 
 	private class Logistic {
