@@ -5,22 +5,22 @@ import javax.sound.sampled.TargetDataLine;
 public interface IMicrophone {
 
 	/**
-	 * Method to start the microphone in order to receive data from the underlying {@link TargetDataLine}.
+	 * Starts the microphone thread in order to receive data from the underlying {@link TargetDataLine}.
 	 */
 	public void start();
 
 	/**
-	 * Method to interrupt the microphone. It will never be possible to start again this microphone. It release each system resources.
+	 * Stops the microphone thread. It will never be possible to start this microphone again. It release each system resources.
 	 */
-	public void interrupt();
+	public void stop();
 
 	/**
-	 * Force the microphone thread to be paused until the method {@link #relaunch()} is called.
+	 * Force the microphone thread to be paused until the method {@link #resume()} is called.
 	 */
 	public void pause();
 
 	/**
-	 * Relaunch the microphone thread in order to received again data from the underlying {@link TargetDataLine}.
+	 * Resume the microphone thread in order to received again data from the underlying {@link TargetDataLine}.
 	 */
-	public void relaunch();
+	public void resume();
 }

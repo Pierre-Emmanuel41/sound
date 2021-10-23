@@ -18,17 +18,18 @@ import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 
-public class Speakers extends Thread implements ISpeakers {
+public class Speakers implements ISpeakers {
 	private SourceDataLine speakers;
+	private Thread thread;
 	private Mixer mixer;
 	private Object mutex;
 	private boolean pauseRequested;
 
 	protected Speakers(Mixer mixer) {
-		super("SpeakerThread");
 		this.mixer = mixer;
+		thread = new Thread(() -> execute(), "Speakers");
+		thread.setDaemon(true);
 		mutex = new Object();
-		setDaemon(true);
 	}
 
 	@Override
@@ -38,7 +39,7 @@ public class Speakers extends Thread implements ISpeakers {
 				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
 				EventManager.callEvent(new SpeakersStartPostEvent(this));
-				super.start();
+				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
 			}
@@ -46,10 +47,50 @@ public class Speakers extends Thread implements ISpeakers {
 	}
 
 	@Override
-	public void run() {
-		speakers.start();
+	public void stop() {
+		EventManager.callEvent(new SpeakersInterruptPreEvent(this), () -> {
+			if (speakers != null) {
+				speakers.stop();
+				speakers.close();
+			}
+			thread.interrupt();
+			EventManager.callEvent(new SpeakersInterruptPostEvent(this));
+		});
+	}
 
-		while (!isInterrupted()) {
+	@Override
+	public void pause() {
+		EventManager.callEvent(new SpeakersPausePreEvent(this), () -> {
+			pauseRequested = true;
+			speakers.flush();
+			EventManager.callEvent(new SpeakersPausePostEvent(this));
+		});
+	}
+
+	@Override
+	public void resume() {
+		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), () -> {
+			pauseRequested = false;
+			synchronized (mutex) {
+				mutex.notify();
+			}
+			EventManager.callEvent(new SpeakersRelaunchPostEvent(this));
+		});
+	}
+
+	private void sleep() {
+		synchronized (mutex) {
+			try {
+				mutex.wait();
+			} catch (InterruptedException e) {
+				// Do nothing
+			}
+		}
+	}
+
+	private void execute() {
+		speakers.start();
+		while (!thread.isInterrupted()) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);
@@ -72,47 +113,6 @@ public class Speakers extends Thread implements ISpeakers {
 				e.printStackTrace();
 			}
 		}
-	}
 
-	@Override
-	public void interrupt() {
-		EventManager.callEvent(new SpeakersInterruptPreEvent(this), () -> {
-			if (speakers != null) {
-				speakers.stop();
-				speakers.close();
-			}
-			super.interrupt();
-			EventManager.callEvent(new SpeakersInterruptPostEvent(this));
-		});
-	}
-
-	@Override
-	public void pause() {
-		EventManager.callEvent(new SpeakersPausePreEvent(this), () -> {
-			pauseRequested = true;
-			speakers.flush();
-			EventManager.callEvent(new SpeakersPausePostEvent(this));
-		});
-	}
-
-	@Override
-	public void relaunch() {
-		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), () -> {
-			pauseRequested = false;
-			synchronized (mutex) {
-				mutex.notify();
-			}
-			EventManager.callEvent(new SpeakersRelaunchPostEvent(this));
-		});
-	}
-
-	private void sleep() {
-		synchronized (mutex) {
-			try {
-				mutex.wait();
-			} catch (InterruptedException e) {
-				// Do nothing
-			}
-		}
 	}
 }

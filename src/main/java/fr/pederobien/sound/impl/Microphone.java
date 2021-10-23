@@ -22,12 +22,13 @@ import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 
-public class Microphone extends Thread implements IMicrophone, IEventListener {
+public class Microphone implements IMicrophone, IEventListener {
 	private static int N_SHORTS = 0xffff;
 	private static final short[] VOLUME_NORM_LUT = new short[N_SHORTS];
 	private static int MAX_NEGATIVE_AMPLITUDE = 0x8000;
 	private TargetDataLine microphone;
 	private IEncoder encoder;
+	private Thread thread;
 	private Object mutex;
 	private boolean pauseRequested, isInterrupted;
 
@@ -36,12 +37,12 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	}
 
 	protected Microphone() {
-		super("Microphone");
+		thread = new Thread(() -> execute(), "Microphone");
+		thread.setDaemon(true);
 
 		mutex = new Object();
 		encoder = new Encoder();
 		EventManager.registerListener(this);
-		setDaemon(true);
 	}
 
 	@Override
@@ -51,7 +52,7 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
 				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
 				EventManager.callEvent(new MicrophoneStartPostEvent(this));
-				super.start();
+				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
 			}
@@ -59,18 +60,41 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 	}
 
 	@Override
-	public void interrupt() {
+	public void stop() {
 		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), () -> {
 			isInterrupted = true;
-			super.interrupt();
+			thread.interrupt();
 			EventManager.callEvent(new MicrophoneInterruptPostEvent(this));
 		});
 	}
 
 	@Override
-	public void run() {
+	public void pause() {
+		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> {
+			pauseRequested = true;
+			EventManager.callEvent(new MicrophonePausePostEvent(this));
+		});
+	}
+
+	@Override
+	public void resume() {
+		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), () -> {
+			pauseRequested = false;
+			synchronized (mutex) {
+				mutex.notify();
+			}
+			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
+		});
+	}
+
+	@EventHandler
+	private void onEncodeFail(EncoderFailToEncodeEvent event) {
+		System.err.println("[Microphone] Fail to encode bytes array");
+	}
+
+	private void execute() {
 		microphone.start();
-		while (!isInterrupted()) {
+		while (!thread.isInterrupted()) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
 				final int numBytesRead = microphone.read(data, 0, data.length);
@@ -95,30 +119,6 @@ public class Microphone extends Thread implements IMicrophone, IEventListener {
 
 		microphone.stop();
 		microphone.close();
-	}
-
-	@Override
-	public void pause() {
-		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> {
-			pauseRequested = true;
-			EventManager.callEvent(new MicrophonePausePostEvent(this));
-		});
-	}
-
-	@Override
-	public void relaunch() {
-		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), () -> {
-			pauseRequested = false;
-			synchronized (mutex) {
-				mutex.notify();
-			}
-			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
-		});
-	}
-
-	@EventHandler
-	private void onEncodeFail(EncoderFailToEncodeEvent event) {
-		System.err.println("[Microphone] Fail to encode bytes array");
 	}
 
 	private void normalizeVolume(byte[] audioSamples) {
