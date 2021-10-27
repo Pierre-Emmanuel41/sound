@@ -1,5 +1,7 @@
 package fr.pederobien.sound.event;
 
+import java.util.StringJoiner;
+
 import javax.sound.sampled.TargetDataLine;
 
 import fr.pederobien.sound.interfaces.IMicrophone;
@@ -33,5 +35,13 @@ public class MicrophoneDataEncodedEvent extends MicrophoneEvent {
 	 */
 	public byte[] getEncoded() {
 		return encoded;
+	}
+
+	@Override
+	public String toString() {
+		StringJoiner joiner = new StringJoiner(",", "{", "}");
+		joiner.add("originalLength=" + getOriginal().length);
+		joiner.add("encodedLength=" + getEncoded().length);
+		return String.format("%s_%s", getName(), joiner);
 	}
 }

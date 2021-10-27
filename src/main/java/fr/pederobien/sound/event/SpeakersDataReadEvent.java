@@ -1,5 +1,7 @@
 package fr.pederobien.sound.event;
 
+import java.util.StringJoiner;
+
 import javax.sound.sampled.SourceDataLine;
 
 import fr.pederobien.sound.interfaces.ISpeakers;
@@ -23,5 +25,12 @@ public class SpeakersDataReadEvent extends SpeakersEvent {
 	 */
 	public byte[] getData() {
 		return data;
+	}
+
+	@Override
+	public String toString() {
+		StringJoiner joiner = new StringJoiner(",", "{", "}");
+		joiner.add("length=" + getData().length);
+		return String.format("%s_%s", getName(), joiner);
 	}
 }
