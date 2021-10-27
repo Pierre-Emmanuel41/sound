@@ -61,30 +61,27 @@ public class Microphone implements IMicrophone, IEventListener {
 
 	@Override
 	public void stop() {
-		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), () -> {
+		Runnable stop = () -> {
 			isInterrupted = true;
 			thread.interrupt();
-			EventManager.callEvent(new MicrophoneInterruptPostEvent(this));
-		});
+		};
+		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), stop, new MicrophoneInterruptPostEvent(this));
 	}
 
 	@Override
 	public void pause() {
-		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> {
-			pauseRequested = true;
-			EventManager.callEvent(new MicrophonePausePostEvent(this));
-		});
+		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> pauseRequested = true, new MicrophonePausePostEvent(this));
 	}
 
 	@Override
 	public void resume() {
-		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), () -> {
+		Runnable resume = () -> {
 			pauseRequested = false;
 			synchronized (mutex) {
 				mutex.notify();
 			}
-			EventManager.callEvent(new MicrophoneRelaunchPostEvent(this));
-		});
+		};
+		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), resume, new MicrophoneRelaunchPostEvent(this));
 	}
 
 	@EventHandler

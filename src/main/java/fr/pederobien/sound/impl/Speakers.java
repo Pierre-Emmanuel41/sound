@@ -48,34 +48,34 @@ public class Speakers implements ISpeakers {
 
 	@Override
 	public void stop() {
-		EventManager.callEvent(new SpeakersInterruptPreEvent(this), () -> {
+		Runnable stop = () -> {
 			if (speakers != null) {
 				speakers.stop();
 				speakers.close();
 			}
 			thread.interrupt();
-			EventManager.callEvent(new SpeakersInterruptPostEvent(this));
-		});
+		};
+		EventManager.callEvent(new SpeakersInterruptPreEvent(this), stop, new SpeakersInterruptPostEvent(this));
 	}
 
 	@Override
 	public void pause() {
-		EventManager.callEvent(new SpeakersPausePreEvent(this), () -> {
+		Runnable pause = () -> {
 			pauseRequested = true;
 			speakers.flush();
-			EventManager.callEvent(new SpeakersPausePostEvent(this));
-		});
+		};
+		EventManager.callEvent(new SpeakersPausePreEvent(this), pause, new SpeakersPausePostEvent(this));
 	}
 
 	@Override
 	public void resume() {
-		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), () -> {
+		Runnable resume = () -> {
 			pauseRequested = false;
 			synchronized (mutex) {
 				mutex.notify();
 			}
-			EventManager.callEvent(new SpeakersRelaunchPostEvent(this));
-		});
+		};
+		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), resume, new SpeakersRelaunchPostEvent(this));
 	}
 
 	private void sleep() {
