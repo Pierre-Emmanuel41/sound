@@ -1,5 +1,7 @@
 package fr.pederobien.sound.impl;
 
+import java.util.function.Supplier;
+
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
@@ -47,16 +49,18 @@ public class Microphone implements IMicrophone, IEventListener {
 
 	@Override
 	public void start() {
-		EventManager.callEvent(new MicrophoneStartPreEvent(this), () -> {
+		Supplier<Boolean> start = () -> {
 			try {
 				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
 				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
-				EventManager.callEvent(new MicrophoneStartPostEvent(this));
 				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
+				return false;
 			}
-		});
+			return true;
+		};
+		EventManager.callEvent(new MicrophoneStartPreEvent(this), start, new MicrophoneStartPostEvent(this));
 	}
 
 	@Override

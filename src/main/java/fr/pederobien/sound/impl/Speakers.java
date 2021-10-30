@@ -1,5 +1,7 @@
 package fr.pederobien.sound.impl;
 
+import java.util.function.Supplier;
+
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
@@ -34,16 +36,18 @@ public class Speakers implements ISpeakers {
 
 	@Override
 	public void start() {
-		EventManager.callEvent(new SpeakersStartPreEvent(this), () -> {
+		Supplier<Boolean> start = () -> {
 			try {
 				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
-				EventManager.callEvent(new SpeakersStartPostEvent(this));
 				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
+				return false;
 			}
-		});
+			return true;
+		};
+		EventManager.callEvent(new SpeakersStartPreEvent(this), start, new SpeakersStartPostEvent(this));
 	}
 
 	@Override
