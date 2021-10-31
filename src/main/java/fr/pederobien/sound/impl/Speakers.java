@@ -112,6 +112,8 @@ public class Speakers implements ISpeakers {
 				speakers.write(data, 0, read);
 
 				Thread.sleep(5);
+			} catch (InterruptedException e) {
+				// Do nothing
 			} catch (Exception e) {
 				// In order to avoid to stop the speakers thread when an exception occurs while reading bytes.
 				e.printStackTrace();
