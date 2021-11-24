@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import fr.pederobien.sound.event.DecoderFailToDecodeEvent;
 import fr.pederobien.sound.interfaces.IDecoder;
+import fr.pederobien.utils.BlockingQueueTask;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -16,30 +17,25 @@ public class AudioStream implements IEventListener {
 	private List<AudioSample> samples, finished;
 	private Lock lock;
 	private int size;
+	private BlockingQueueTask<AudioPacket> extractor;
 
-	public AudioStream() {
+	public AudioStream(String key) {
 		decoder = new Decoder();
 		samples = new ArrayList<AudioSample>();
 		finished = new ArrayList<AudioSample>();
 		lock = new ReentrantLock(true);
+		extractor = new BlockingQueueTask<AudioPacket>(String.format("%s_Extractor", key), packet -> extractPacket(packet));
+		extractor.start();
 		EventManager.registerListener(this);
 	}
 
 	/**
-	 * Extract the audio sample associated to the given audio packet.
+	 * Extract asynchronously the audio sample associated to the given audio packet.
 	 * 
 	 * @param packet The audio packet that contains audio sample data.
 	 */
 	public void extract(AudioPacket packet) {
-		byte[] data = packet.getData();
-
-		if (packet.isEncoded())
-			data = decoder.decode(data);
-
-		if (packet.isMono())
-			data = toStereo(data);
-
-		addSample(new AudioSample(data, packet));
+		extractor.add(packet);
 	}
 
 	/**
@@ -170,5 +166,22 @@ public class AudioStream implements IEventListener {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	/**
+	 * Extract the audio sample associated to the given audio packet.
+	 * 
+	 * @param packet The audio packet that contains audio sample data.
+	 */
+	public void extractPacket(AudioPacket packet) {
+		byte[] data = packet.getData();
+
+		if (packet.isEncoded())
+			data = decoder.decode(data);
+
+		if (packet.isMono())
+			data = toStereo(data);
+
+		addSample(new AudioSample(data, packet));
 	}
 }

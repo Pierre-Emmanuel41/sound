@@ -38,7 +38,7 @@ public class Mixer implements IMixer {
 	public void put(AudioPacket packet) {
 		AudioStream stream = getStream(packet.getKey());
 		if (stream == null) {
-			stream = new AudioStream();
+			stream = new AudioStream(packet.getKey());
 			putStream(packet.getKey(), stream);
 		}
 
