@@ -2,7 +2,9 @@ package fr.pederobien.sound.interfaces;
 
 import javax.sound.sampled.TargetDataLine;
 
-public interface IMicrophone {
+import fr.pederobien.utils.IPausable;
+
+public interface IMicrophone extends IPausable {
 
 	/**
 	 * Starts the microphone thread in order to receive data from the underlying {@link TargetDataLine}.

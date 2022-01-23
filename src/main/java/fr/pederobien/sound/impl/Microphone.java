@@ -1,5 +1,8 @@
 package fr.pederobien.sound.impl;
 
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import javax.sound.sampled.AudioSystem;
@@ -31,8 +34,10 @@ public class Microphone implements IMicrophone, IEventListener {
 	private TargetDataLine microphone;
 	private IEncoder encoder;
 	private Thread thread;
-	private Object mutex;
-	private boolean pauseRequested, isInterrupted;
+	private Lock lock;
+	private Condition sleep;
+	private boolean pauseRequested;
+	private PausableState state;
 
 	static {
 		preComputeVolumeNormLUT();
@@ -42,13 +47,18 @@ public class Microphone implements IMicrophone, IEventListener {
 		thread = new Thread(() -> execute(), "Microphone");
 		thread.setDaemon(true);
 
-		mutex = new Object();
+		lock = new ReentrantLock(true);
+		sleep = lock.newCondition();
 		encoder = new Encoder();
+		state = PausableState.NOT_STARTED;
 		EventManager.registerListener(this);
 	}
 
 	@Override
 	public void start() {
+		if (state == PausableState.STARTED || state == PausableState.PAUSED)
+			return;
+
 		Supplier<Boolean> start = () -> {
 			try {
 				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
@@ -58,6 +68,7 @@ public class Microphone implements IMicrophone, IEventListener {
 				e.printStackTrace();
 				return false;
 			}
+			state = PausableState.STARTED;
 			return true;
 		};
 		EventManager.callEvent(new MicrophoneStartPreEvent(this), start, new MicrophoneStartPostEvent(this));
@@ -65,27 +76,49 @@ public class Microphone implements IMicrophone, IEventListener {
 
 	@Override
 	public void stop() {
+		if (state == PausableState.NOT_STARTED)
+			return;
+
 		Runnable stop = () -> {
-			isInterrupted = true;
+			if (microphone != null) {
+				microphone.stop();
+				microphone.close();
+			}
 			thread.interrupt();
+			state = PausableState.NOT_STARTED;
 		};
 		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), stop, new MicrophoneInterruptPostEvent(this));
 	}
 
 	@Override
 	public void pause() {
-		EventManager.callEvent(new MicrophonePausePreEvent(this), () -> pauseRequested = true, new MicrophonePausePostEvent(this));
+		if (state == PausableState.NOT_STARTED || state == PausableState.PAUSED)
+			return;
+
+		Runnable pause = () -> {
+			pauseRequested = true;
+			microphone.flush();
+			state = PausableState.PAUSED;
+		};
+		EventManager.callEvent(new MicrophonePausePreEvent(this), pause, new MicrophonePausePostEvent(this));
 	}
 
 	@Override
 	public void resume() {
+		if (state == PausableState.NOT_STARTED || state == PausableState.STARTED)
+			return;
+
 		Runnable resume = () -> {
 			pauseRequested = false;
-			synchronized (mutex) {
-				mutex.notify();
-			}
+			state = PausableState.STARTED;
+			signal();
 		};
 		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), resume, new MicrophoneRelaunchPostEvent(this));
+	}
+
+	@Override
+	public PausableState getState() {
+		return state;
 	}
 
 	@EventHandler
@@ -105,9 +138,6 @@ public class Microphone implements IMicrophone, IEventListener {
 
 				if (numBytesRead != data.length)
 					data = ByteWrapper.wrap(data).extract(0, numBytesRead);
-
-				if (isInterrupted)
-					break;
 
 				normalizeVolume(data);
 				byte[] encoded = encoder.encode(data);
@@ -142,13 +172,29 @@ public class Microphone implements IMicrophone, IEventListener {
 		}
 	}
 
+	/**
+	 * Forces the microphone thread to sleep until the {@link #sleep} condition is signaled.
+	 */
 	private void sleep() {
-		synchronized (mutex) {
-			try {
-				mutex.wait();
-			} catch (InterruptedException e) {
-				// Do nothing
-			}
+		lock.lock();
+		try {
+			sleep.await();
+		} catch (InterruptedException e) {
+			// do nothing
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/**
+	 * Signal the {@link #sleep} condition in order to awake the microphone thread.
+	 */
+	private void signal() {
+		lock.lock();
+		try {
+			sleep.signal();
+		} finally {
+			lock.unlock();
 		}
 	}
 }

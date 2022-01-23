@@ -1,5 +1,8 @@
 package fr.pederobien.sound.impl;
 
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import javax.sound.sampled.AudioSystem;
@@ -24,18 +27,25 @@ public class Speakers implements ISpeakers {
 	private SourceDataLine speakers;
 	private Thread thread;
 	private Mixer mixer;
-	private Object mutex;
+	private Lock lock;
+	private Condition sleep;
 	private boolean pauseRequested;
+	private PausableState state;
 
 	protected Speakers(Mixer mixer) {
 		this.mixer = mixer;
 		thread = new Thread(() -> execute(), "Speakers");
 		thread.setDaemon(true);
-		mutex = new Object();
+		lock = new ReentrantLock(true);
+		sleep = lock.newCondition();
+		state = PausableState.NOT_STARTED;
 	}
 
 	@Override
 	public void start() {
+		if (state == PausableState.STARTED || state == PausableState.PAUSED)
+			return;
+
 		Supplier<Boolean> start = () -> {
 			try {
 				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
@@ -45,6 +55,7 @@ public class Speakers implements ISpeakers {
 				e.printStackTrace();
 				return false;
 			}
+			state = PausableState.STARTED;
 			return true;
 		};
 		EventManager.callEvent(new SpeakersStartPreEvent(this), start, new SpeakersStartPostEvent(this));
@@ -52,43 +63,74 @@ public class Speakers implements ISpeakers {
 
 	@Override
 	public void stop() {
+		if (state == PausableState.NOT_STARTED)
+			return;
+
 		Runnable stop = () -> {
 			if (speakers != null) {
 				speakers.stop();
 				speakers.close();
 			}
 			thread.interrupt();
+			state = PausableState.NOT_STARTED;
 		};
 		EventManager.callEvent(new SpeakersInterruptPreEvent(this), stop, new SpeakersInterruptPostEvent(this));
 	}
 
 	@Override
 	public void pause() {
+		if (state == PausableState.NOT_STARTED || state == PausableState.PAUSED)
+			return;
+
 		Runnable pause = () -> {
 			pauseRequested = true;
 			speakers.flush();
+			state = PausableState.PAUSED;
 		};
 		EventManager.callEvent(new SpeakersPausePreEvent(this), pause, new SpeakersPausePostEvent(this));
 	}
 
 	@Override
 	public void resume() {
+		if (state == PausableState.NOT_STARTED || state == PausableState.STARTED)
+			return;
+
 		Runnable resume = () -> {
 			pauseRequested = false;
-			synchronized (mutex) {
-				mutex.notify();
-			}
+			state = PausableState.STARTED;
+			signal();
 		};
 		EventManager.callEvent(new SpeakersRelaunchPreEvent(this), resume, new SpeakersRelaunchPostEvent(this));
 	}
 
+	@Override
+	public PausableState getState() {
+		return state;
+	}
+
+	/**
+	 * Forces the speaker thread to sleep until the {@link #sleep} condition is signaled.
+	 */
 	private void sleep() {
-		synchronized (mutex) {
-			try {
-				mutex.wait();
-			} catch (InterruptedException e) {
-				// Do nothing
-			}
+		lock.lock();
+		try {
+			sleep.await();
+		} catch (InterruptedException e) {
+			// do nothing
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/**
+	 * Signal the {@link #sleep} condition in order to awake the speakers thread.
+	 */
+	private void signal() {
+		lock.lock();
+		try {
+			sleep.signal();
+		} finally {
+			lock.unlock();
 		}
 	}
 
