@@ -13,6 +13,7 @@ import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 
 public class AudioStream implements IEventListener {
+	private String key;
 	private IDecoder decoder;
 	private List<AudioSample> samples, finished;
 	private Lock lock;
@@ -20,6 +21,7 @@ public class AudioStream implements IEventListener {
 	private BlockingQueueTask<AudioPacket> extractor;
 
 	public AudioStream(String key) {
+		this.key = key;
 		decoder = new Decoder();
 		samples = new ArrayList<AudioSample>();
 		finished = new ArrayList<AudioSample>();
@@ -27,6 +29,13 @@ public class AudioStream implements IEventListener {
 		extractor = new BlockingQueueTask<AudioPacket>(String.format("%s_Extractor", key), packet -> extractPacket(packet));
 		extractor.start();
 		EventManager.registerListener(this);
+	}
+
+	/**
+	 * @return The key to which this stream is associated.
+	 */
+	public String getKey() {
+		return key;
 	}
 
 	/**
