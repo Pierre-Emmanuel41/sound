@@ -37,10 +37,8 @@ public class Mixer implements IMixer {
 	@Override
 	public void put(AudioPacket packet) {
 		AudioStream stream = getStream(packet.getKey());
-		if (stream == null) {
-			stream = new AudioStream(packet.getKey());
-			putStream(packet.getKey(), stream);
-		}
+		if (stream == null)
+			putStream(packet.getKey(), stream = new AudioStream(packet.getKey()));
 
 		stream.extract(packet);
 		if (stream.size() > BUFFERED_SAMPLES_SIZE) {
