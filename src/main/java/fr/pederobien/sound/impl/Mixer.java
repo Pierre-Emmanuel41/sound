@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import fr.pederobien.sound.interfaces.IMixer;
@@ -14,7 +15,7 @@ public class Mixer implements IMixer {
 	private static final int BUFFERED_SAMPLES_SIZE = 5;
 	private Map<String, AudioStream> streams;
 	private double globalVolume;
-	private ReentrantLock lock;
+	private Lock lock;
 	private Condition notEmpty;
 
 	public Mixer() {
