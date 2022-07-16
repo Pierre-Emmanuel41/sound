@@ -29,13 +29,11 @@ public class Speakers implements ISpeakers {
 	private Mixer mixer;
 	private Lock lock;
 	private Condition sleep;
-	private boolean pauseRequested;
+	private boolean pauseRequested, interrupt;
 	private PausableState state;
 
 	protected Speakers(Mixer mixer) {
 		this.mixer = mixer;
-		thread = new Thread(() -> execute(), "Speakers");
-		thread.setDaemon(true);
 		lock = new ReentrantLock(true);
 		sleep = lock.newCondition();
 		state = PausableState.NOT_STARTED;
@@ -50,6 +48,8 @@ public class Speakers implements ISpeakers {
 			try {
 				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
+				thread = new Thread(() -> execute(), "Speakers");
+				thread.setDaemon(true);
 				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
@@ -67,7 +67,7 @@ public class Speakers implements ISpeakers {
 			return;
 
 		Runnable stop = () -> {
-			thread.interrupt();
+			interrupt = true;
 			state = PausableState.NOT_STARTED;
 		};
 		EventManager.callEvent(new SpeakersInterruptPreEvent(this), stop, new SpeakersInterruptPostEvent(this));
@@ -132,7 +132,7 @@ public class Speakers implements ISpeakers {
 
 	private void execute() {
 		speakers.start();
-		while (!Thread.currentThread().isInterrupted()) {
+		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);

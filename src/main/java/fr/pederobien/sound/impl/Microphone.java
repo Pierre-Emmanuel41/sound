@@ -36,7 +36,7 @@ public class Microphone implements IMicrophone, IEventListener {
 	private Thread thread;
 	private Lock lock;
 	private Condition sleep;
-	private boolean pauseRequested;
+	private boolean pauseRequested, interrupt;
 	private PausableState state;
 
 	static {
@@ -44,9 +44,6 @@ public class Microphone implements IMicrophone, IEventListener {
 	}
 
 	protected Microphone() {
-		thread = new Thread(() -> execute(), "Microphone");
-		thread.setDaemon(true);
-
 		lock = new ReentrantLock(true);
 		sleep = lock.newCondition();
 		encoder = new Encoder();
@@ -63,6 +60,10 @@ public class Microphone implements IMicrophone, IEventListener {
 			try {
 				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
 				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
+
+				interrupt = false;
+				thread = new Thread(() -> execute(), "Microphone");
+				thread.setDaemon(true);
 				thread.start();
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
@@ -80,7 +81,7 @@ public class Microphone implements IMicrophone, IEventListener {
 			return;
 
 		Runnable stop = () -> {
-			thread.interrupt();
+			interrupt = true;
 			state = PausableState.NOT_STARTED;
 		};
 		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), stop, new MicrophoneInterruptPostEvent(this));
@@ -124,7 +125,7 @@ public class Microphone implements IMicrophone, IEventListener {
 
 	private void execute() {
 		microphone.start();
-		while (!Thread.currentThread().isInterrupted()) {
+		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
 				final int numBytesRead = microphone.read(data, 0, data.length);
@@ -136,10 +137,16 @@ public class Microphone implements IMicrophone, IEventListener {
 					data = ByteWrapper.wrap(data).extract(0, numBytesRead);
 
 				normalizeVolume(data);
+
 				byte[] encoded = encoder.encode(data);
 				if (encoded.length > 0)
 					EventManager.callEvent(new MicrophoneDataEncodedEvent(this, data, encoded));
-			} catch (Error e) {
+
+				Thread.sleep(5);
+			} catch (InterruptedException e) {
+				// Do nothing
+			} catch (Exception e) {
+				// In order to avoid to stop the speakers thread when an exception occurs while reading bytes.
 				e.printStackTrace();
 			}
 		}
