@@ -80,10 +80,6 @@ public class Microphone implements IMicrophone, IEventListener {
 			return;
 
 		Runnable stop = () -> {
-			if (microphone != null) {
-				microphone.stop();
-				microphone.close();
-			}
 			thread.interrupt();
 			state = PausableState.NOT_STARTED;
 		};

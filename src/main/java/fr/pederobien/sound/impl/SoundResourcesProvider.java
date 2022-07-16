@@ -1,53 +1,41 @@
 package fr.pederobien.sound.impl;
 
-import fr.pederobien.sound.interfaces.IDecoder;
-import fr.pederobien.sound.interfaces.IEncoder;
+import javax.sound.sampled.SourceDataLine;
+import javax.sound.sampled.TargetDataLine;
+
 import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.sound.interfaces.IMixer;
-import fr.pederobien.sound.interfaces.ISoundResourcesProvider;
 import fr.pederobien.sound.interfaces.ISpeakers;
 
-public class SoundResourcesProvider implements ISoundResourcesProvider {
-	private IMicrophone microphone;
-	private ISpeakers speakers;
-	private IMixer mixer;
+public class SoundResourcesProvider {
+	private static IMicrophone microphone;
+	private static ISpeakers speakers;
+	private static IMixer mixer;
 
-	/**
-	 * Creates a provider that gather all needed resources to get data coming from the microphone, to play data using a mixer, to
-	 * compress and decompress data.
-	 * 
-	 * @param asynchronousEncoder True if the encoder is asynchronous, false otherwise.
-	 * @param lowpassRate         low-pass rate (Hz) for the low-pass filter associated to the encoder.
-	 * @param highpassRate        high-pass rate (Hz) for the high-pass filter associated to the encoder.
-	 */
-	public SoundResourcesProvider() {
+	static {
 		microphone = new Microphone();
 		mixer = new Mixer();
 		speakers = new Speakers((Mixer) mixer);
 	}
 
-	@Override
-	public IMicrophone getMicrophone() {
+	/**
+	 * @return The microphone that read data from a {@link TargetDataLine}.
+	 */
+	public static IMicrophone getMicrophone() {
 		return microphone;
 	}
 
-	@Override
+	/**
+	 * @return The speakers that play data in a {@link SourceDataLine}.
+	 */
 	public ISpeakers getSpeakers() {
 		return speakers;
 	}
 
-	@Override
+	/**
+	 * @return A mixer that merge several audio streams.
+	 */
 	public IMixer getMixer() {
 		return mixer;
-	}
-
-	@Override
-	public IEncoder newEncoder() {
-		return new Encoder();
-	}
-
-	@Override
-	public IDecoder newDecoder() {
-		return new Decoder();
 	}
 }

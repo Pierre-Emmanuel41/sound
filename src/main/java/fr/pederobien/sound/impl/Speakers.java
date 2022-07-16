@@ -67,10 +67,6 @@ public class Speakers implements ISpeakers {
 			return;
 
 		Runnable stop = () -> {
-			if (speakers != null) {
-				speakers.stop();
-				speakers.close();
-			}
 			thread.interrupt();
 			state = PausableState.NOT_STARTED;
 		};
@@ -162,5 +158,7 @@ public class Speakers implements ISpeakers {
 			}
 		}
 
+		speakers.stop();
+		speakers.close();
 	}
 }
