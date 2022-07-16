@@ -28,14 +28,14 @@ public class SoundResourcesProvider {
 	/**
 	 * @return The speakers that play data in a {@link SourceDataLine}.
 	 */
-	public ISpeakers getSpeakers() {
+	public static ISpeakers getSpeakers() {
 		return speakers;
 	}
 
 	/**
 	 * @return A mixer that merge several audio streams.
 	 */
-	public IMixer getMixer() {
+	public static IMixer getMixer() {
 		return mixer;
 	}
 }
