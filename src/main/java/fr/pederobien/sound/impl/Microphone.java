@@ -124,7 +124,7 @@ public class Microphone implements IMicrophone, IEventListener {
 
 	private void execute() {
 		microphone.start();
-		while (!thread.isInterrupted()) {
+		while (!Thread.currentThread().isInterrupted()) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
 				final int numBytesRead = microphone.read(data, 0, data.length);

@@ -132,7 +132,7 @@ public class Speakers implements ISpeakers {
 
 	private void execute() {
 		speakers.start();
-		while (!thread.isInterrupted()) {
+		while (!Thread.currentThread().isInterrupted()) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);
