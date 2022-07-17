@@ -2,7 +2,7 @@ package fr.pederobien.sound.event;
 
 import fr.pederobien.sound.interfaces.ISpeakers;
 
-public class SpeakersEvent extends SoundEvent {
+public class SpeakersEvent extends ProjectSoundEvent {
 	private ISpeakers speakers;
 
 	/**

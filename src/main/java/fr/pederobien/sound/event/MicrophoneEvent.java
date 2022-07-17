@@ -2,7 +2,7 @@ package fr.pederobien.sound.event;
 
 import fr.pederobien.sound.interfaces.IMicrophone;
 
-public class MicrophoneEvent extends SoundEvent {
+public class MicrophoneEvent extends ProjectSoundEvent {
 	private IMicrophone microphone;
 
 	/**

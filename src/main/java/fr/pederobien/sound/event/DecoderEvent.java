@@ -2,7 +2,7 @@ package fr.pederobien.sound.event;
 
 import fr.pederobien.sound.interfaces.IDecoder;
 
-public class DecoderEvent extends SoundEvent {
+public class DecoderEvent extends ProjectSoundEvent {
 	private IDecoder decoder;
 
 	/**

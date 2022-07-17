@@ -2,7 +2,7 @@ package fr.pederobien.sound.event;
 
 import fr.pederobien.sound.interfaces.IEncoder;
 
-public class EncoderEvent extends SoundEvent {
+public class EncoderEvent extends ProjectSoundEvent {
 	private IEncoder encoder;
 
 	/**
