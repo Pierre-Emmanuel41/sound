@@ -48,6 +48,8 @@ public class Speakers implements ISpeakers {
 			try {
 				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
+
+				interrupt = false;
 				thread = new Thread(() -> execute(), "Speakers");
 				thread.setDaemon(true);
 				thread.start();
