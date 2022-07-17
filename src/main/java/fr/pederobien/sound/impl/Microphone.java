@@ -44,11 +44,16 @@ public class Microphone implements IMicrophone, IEventListener {
 	}
 
 	protected Microphone() {
-		lock = new ReentrantLock(true);
-		sleep = lock.newCondition();
-		encoder = new Encoder();
-		state = PausableState.NOT_STARTED;
-		EventManager.registerListener(this);
+		try {
+			microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
+			lock = new ReentrantLock(true);
+			sleep = lock.newCondition();
+			encoder = new Encoder();
+			state = PausableState.NOT_STARTED;
+			EventManager.registerListener(this);
+		} catch (LineUnavailableException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -58,7 +63,9 @@ public class Microphone implements IMicrophone, IEventListener {
 
 		Supplier<Boolean> start = () -> {
 			try {
-				microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
+				if (microphone == null)
+					return false;
+
 				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
 
 				interrupt = false;
@@ -151,6 +158,7 @@ public class Microphone implements IMicrophone, IEventListener {
 			}
 		}
 
+		microphone.flush();
 		microphone.stop();
 		microphone.close();
 	}

@@ -34,9 +34,14 @@ public class Speakers implements ISpeakers {
 
 	protected Speakers(Mixer mixer) {
 		this.mixer = mixer;
-		lock = new ReentrantLock(true);
-		sleep = lock.newCondition();
-		state = PausableState.NOT_STARTED;
+		try {
+			speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
+			lock = new ReentrantLock(true);
+			sleep = lock.newCondition();
+			state = PausableState.NOT_STARTED;
+		} catch (LineUnavailableException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -46,7 +51,9 @@ public class Speakers implements ISpeakers {
 
 		Supplier<Boolean> start = () -> {
 			try {
-				speakers = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, SoundConstants.SPEAKERS_AUDIO_FORMAT));
+				if (speakers == null)
+					return false;
+
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
 
 				interrupt = false;
@@ -160,6 +167,7 @@ public class Speakers implements ISpeakers {
 			}
 		}
 
+		speakers.flush();
 		speakers.stop();
 		speakers.close();
 	}
