@@ -52,6 +52,19 @@ public class Mixer implements IMixer {
 		}
 	}
 
+	@Override
+	public void clear() {
+		lock.lock();
+		try {
+			for (Map.Entry<String, AudioStream> entry : streams.entrySet())
+				entry.getValue().clear();
+
+			streams.clear();
+		} finally {
+			lock.unlock();
+		}
+	}
+
 	/**
 	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
 	 * <p>

@@ -23,4 +23,9 @@ public interface IMixer {
 	 * @param packet the packet that gather the properties of the audio sample to add.
 	 */
 	void put(AudioPacket packet);
+
+	/**
+	 * Removes all registered audio streams.
+	 */
+	void clear();
 }
