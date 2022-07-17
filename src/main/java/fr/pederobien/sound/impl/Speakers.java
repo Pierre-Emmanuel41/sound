@@ -89,7 +89,6 @@ public class Speakers implements ISpeakers {
 
 		Runnable pause = () -> {
 			pauseRequested = true;
-			speakers.flush();
 			state = PausableState.PAUSED;
 		};
 		EventManager.callEvent(new SpeakersPausePreEvent(this), pause, new SpeakersPausePostEvent(this));
@@ -119,8 +118,13 @@ public class Speakers implements ISpeakers {
 	private void sleep() {
 		lock.lock();
 		try {
+			speakers.flush();
+			speakers.stop();
+			speakers.close();
 			sleep.await();
-		} catch (InterruptedException e) {
+			speakers.open();
+			speakers.start();
+		} catch (InterruptedException | LineUnavailableException e) {
 			// do nothing
 		} finally {
 			lock.unlock();
@@ -146,6 +150,9 @@ public class Speakers implements ISpeakers {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);
 
+				if (read == 0)
+					continue;
+
 				// Pause request while waiting for data, if data has been received, then ignore.
 				if (pauseRequested) {
 					sleep();
@@ -167,8 +174,8 @@ public class Speakers implements ISpeakers {
 			}
 		}
 
-		speakers.flush();
 		speakers.stop();
+		speakers.flush();
 		speakers.close();
 	}
 }

@@ -13,10 +13,13 @@ import fr.pederobien.sound.interfaces.IMixer;
 
 public class Mixer implements IMixer {
 	private static final int BUFFERED_SAMPLES_SIZE = 5;
+	private static final int EMPTY_CALL_THRESHOLD = 10;
+
 	private Map<String, AudioStream> streams;
 	private double globalVolume;
 	private Lock lock;
 	private Condition notEmpty;
+	private int currentEmptyCall;
 
 	public Mixer() {
 		streams = new HashMap<String, AudioStream>();
@@ -78,24 +81,16 @@ public class Mixer implements IMixer {
 	 * @return The number of bytes read into buffer.
 	 */
 	protected int read(byte[] data, int offset, int length) {
-		List<int[]> streamBuffers = new ArrayList<int[]>();
-		int[] read = new int[1];
-
-		// Needs to wait for a stream to be registered.
-		if (streams.isEmpty() && sleep())
-			return 0;
-
-		// Step 1: reading n bytes from each registered stream.
-		streamBuffers = readStreams(length);
-
-		// Step 2: Merging buffers.
-		if (!mergeStreams(data, offset, length, streamBuffers, read)) {
-			if (sleep())
-				return 0;
-			else
-				readAndMergeStreams(data, offset, length);
+		int readBytes = mergeStreams(data, offset, length, readStreams(length));
+		if (readBytes == 0) {
+			currentEmptyCall++;
+			if (currentEmptyCall == EMPTY_CALL_THRESHOLD) {
+				sleep();
+				currentEmptyCall = 0;
+				return read(data, offset, length);
+			}
 		}
-		return read[0];
+		return readBytes;
 	}
 
 	/**
@@ -144,13 +139,13 @@ public class Mixer implements IMixer {
 	 * @param offset        The start index to read bytes into.
 	 * @param length        The maximum number of bytes that should be read.
 	 * @param streamBuffers The list that contains the data of each registered stream.
-	 * @param read          An integer array that contains only one value which is the number of read bytes.
 	 * 
-	 * @return True if bytes has been read, false otherwise.
+	 * @return the number of read bytes
 	 */
-	private boolean mergeStreams(byte[] data, int offset, int length, List<int[]> streamBuffers, int[] read) {
+	private int mergeStreams(byte[] data, int offset, int length, List<int[]> streamBuffers) {
 		int currentLeft, currentRight, bufferIndex = 0;
 		boolean bytesRead = false;
+		int readBytes = 0;
 		for (int index = offset; index < length; index += 4) {
 			// New temporal step so initialization
 			currentLeft = 0;
@@ -170,7 +165,7 @@ public class Mixer implements IMixer {
 
 			// If no bytes has been read, then no need to go further.
 			if (!bytesRead)
-				return false;
+				return 0;
 
 			// Clipping
 			currentLeft = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, currentLeft));
@@ -184,29 +179,12 @@ public class Mixer implements IMixer {
 			data[index + 2] = (byte) (currentRight & 0xFF); // LSB
 
 			// Updating the number of read bytes
-			read[0] += 4;
+			readBytes += 4;
 
 			bufferIndex += 2;
 		}
 
-		return true;
-	}
-
-	/**
-	 * Read n bytes with n equals <code>length</code> and update the given <code>data</code> array. This method does not blocks. It is
-	 * assumed that calling this methods means there are registered streams and at least one stream contains data to read.
-	 * 
-	 * @param data   The buffer to read the bytes into.
-	 * @param offset The start index to read bytes into.
-	 * @param length The maximum number of bytes that should be read.
-	 * 
-	 * @return The number of bytes read into buffer.
-	 */
-	private int readAndMergeStreams(byte[] data, int offset, int length) {
-		List<int[]> streamBuffers = readStreams(length);
-		int[] read = new int[1];
-		mergeStreams(data, offset, length, streamBuffers, read);
-		return read[0];
+		return readBytes;
 	}
 
 	/**

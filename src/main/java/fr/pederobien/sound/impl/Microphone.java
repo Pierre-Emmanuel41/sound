@@ -22,7 +22,6 @@ import fr.pederobien.sound.event.MicrophoneStartPostEvent;
 import fr.pederobien.sound.event.MicrophoneStartPreEvent;
 import fr.pederobien.sound.interfaces.IEncoder;
 import fr.pederobien.sound.interfaces.IMicrophone;
-import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -101,7 +100,6 @@ public class Microphone implements IMicrophone, IEventListener {
 
 		Runnable pause = () -> {
 			pauseRequested = true;
-			microphone.flush();
 			state = PausableState.PAUSED;
 		};
 		EventManager.callEvent(new MicrophonePausePreEvent(this), pause, new MicrophonePausePostEvent(this));
@@ -135,13 +133,12 @@ public class Microphone implements IMicrophone, IEventListener {
 		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
-				final int numBytesRead = microphone.read(data, 0, data.length);
+				microphone.read(data, 0, data.length);
 
-				if (pauseRequested)
+				if (pauseRequested) {
 					sleep();
-
-				if (numBytesRead != data.length)
-					data = ByteWrapper.wrap(data).extract(0, numBytesRead);
+					continue;
+				}
 
 				normalizeVolume(data);
 
@@ -158,8 +155,8 @@ public class Microphone implements IMicrophone, IEventListener {
 			}
 		}
 
-		microphone.flush();
 		microphone.stop();
+		microphone.flush();
 		microphone.close();
 	}
 
@@ -189,8 +186,13 @@ public class Microphone implements IMicrophone, IEventListener {
 	private void sleep() {
 		lock.lock();
 		try {
+			microphone.flush();
+			microphone.stop();
+			microphone.close();
 			sleep.await();
-		} catch (InterruptedException e) {
+			microphone.open();
+			microphone.start();
+		} catch (InterruptedException | LineUnavailableException e) {
 			// do nothing
 		} finally {
 			lock.unlock();
