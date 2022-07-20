@@ -87,7 +87,6 @@ public class Mixer implements IMixer, IEventListener {
 			if (currentEmptyCall == EMPTY_CALL_THRESHOLD) {
 				setEmpty(true);
 				currentEmptyCall = 0;
-				return read(data, offset, length);
 			}
 		}
 		return readBytes;
