@@ -49,7 +49,6 @@ public class Microphone implements IMicrophone, IEventListener {
 			sleep = lock.newCondition();
 			encoder = new Encoder();
 			state = PausableState.NOT_STARTED;
-			EventManager.registerListener(this);
 		} catch (LineUnavailableException e) {
 			e.printStackTrace();
 		}
@@ -71,6 +70,7 @@ public class Microphone implements IMicrophone, IEventListener {
 				thread = new Thread(() -> execute(), "Microphone");
 				thread.setDaemon(true);
 				thread.start();
+				EventManager.registerListener(this);
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
 				return false;
@@ -89,6 +89,7 @@ public class Microphone implements IMicrophone, IEventListener {
 		Runnable stop = () -> {
 			interrupt = true;
 			state = PausableState.NOT_STARTED;
+			EventManager.unregisterListener(this);
 		};
 		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), stop, new MicrophoneInterruptPostEvent(this));
 	}

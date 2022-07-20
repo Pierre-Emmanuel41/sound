@@ -5,27 +5,30 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.Condition;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import fr.pederobien.sound.event.MixerEmptyStatusChangePostEvent;
 import fr.pederobien.sound.interfaces.IMixer;
+import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 
-public class Mixer implements IMixer {
+public class Mixer implements IMixer, IEventListener {
 	private static final int BUFFERED_SAMPLES_SIZE = 5;
-	private static final int EMPTY_CALL_THRESHOLD = 10;
+	private static final int EMPTY_CALL_THRESHOLD = 20;
 
 	private Map<String, AudioStream> streams;
 	private double globalVolume;
 	private Lock lock;
-	private Condition notEmpty;
 	private int currentEmptyCall;
+	private AtomicBoolean isEmpty;
 
 	public Mixer() {
 		streams = new HashMap<String, AudioStream>();
 		globalVolume = 1.0;
 		lock = new ReentrantLock(true);
-		notEmpty = lock.newCondition();
+		isEmpty = new AtomicBoolean(true);
 	}
 
 	@Override
@@ -45,14 +48,8 @@ public class Mixer implements IMixer {
 			putStream(packet.getKey(), stream = new AudioStream(packet.getKey()));
 
 		stream.extract(packet);
-		if (stream.size() > BUFFERED_SAMPLES_SIZE) {
-			lock.lock();
-			try {
-				notEmpty.signal();
-			} finally {
-				lock.unlock();
-			}
-		}
+		if (stream.size() > BUFFERED_SAMPLES_SIZE)
+			setEmpty(false);
 	}
 
 	@Override
@@ -81,11 +78,14 @@ public class Mixer implements IMixer {
 	 * @return The number of bytes read into buffer.
 	 */
 	protected int read(byte[] data, int offset, int length) {
+		if (isEmpty.get())
+			return 0;
+
 		int readBytes = mergeStreams(data, offset, length, readStreams(length));
 		if (readBytes == 0) {
 			currentEmptyCall++;
 			if (currentEmptyCall == EMPTY_CALL_THRESHOLD) {
-				sleep();
+				setEmpty(true);
 				currentEmptyCall = 0;
 				return read(data, offset, length);
 			}
@@ -188,23 +188,6 @@ public class Mixer implements IMixer {
 	}
 
 	/**
-	 * Sleep until the condition <code>empty</code> is notified.
-	 * 
-	 * @return true If an {@link InterruptedException} is thrown while waiting, false otherwise.
-	 */
-	private boolean sleep() {
-		lock.lock();
-		try {
-			notEmpty.await();
-			return false;
-		} catch (InterruptedException e) {
-			return true;
-		} finally {
-			lock.unlock();
-		}
-	}
-
-	/**
 	 * Thread safe operation in order to get the stream associated to the given key.
 	 * 
 	 * @param key The key used to get the associated audio stream.
@@ -233,5 +216,17 @@ public class Mixer implements IMixer {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	/**
+	 * Set the empty status of this mixer.
+	 * 
+	 * @param isEmpty True if the mixer is currently empty, false otherwise.
+	 */
+	private void setEmpty(boolean isEmpty) {
+		if (!this.isEmpty.compareAndSet(!isEmpty, isEmpty))
+			return;
+
+		EventManager.callEvent(new MixerEmptyStatusChangePostEvent(this, !isEmpty));
 	}
 }

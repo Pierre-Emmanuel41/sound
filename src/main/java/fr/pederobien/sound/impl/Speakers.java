@@ -10,6 +10,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
+import fr.pederobien.sound.event.MixerEmptyStatusChangePostEvent;
 import fr.pederobien.sound.event.SpeakersDataReadEvent;
 import fr.pederobien.sound.event.SpeakersInterruptPostEvent;
 import fr.pederobien.sound.event.SpeakersInterruptPreEvent;
@@ -21,15 +22,18 @@ import fr.pederobien.sound.event.SpeakersStartPostEvent;
 import fr.pederobien.sound.event.SpeakersStartPreEvent;
 import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.ByteWrapper;
+import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 
-public class Speakers implements ISpeakers {
+public class Speakers implements ISpeakers, IEventListener {
 	private SourceDataLine speakers;
 	private Thread thread;
 	private Mixer mixer;
 	private Lock lock;
 	private Condition sleep;
 	private boolean pauseRequested, interrupt;
+	private boolean internalPauseRequested;
 	private PausableState state;
 
 	protected Speakers(Mixer mixer) {
@@ -60,6 +64,7 @@ public class Speakers implements ISpeakers {
 				thread = new Thread(() -> execute(), "Speakers");
 				thread.setDaemon(true);
 				thread.start();
+				EventManager.registerListener(this);
 			} catch (LineUnavailableException e) {
 				e.printStackTrace();
 				return false;
@@ -78,6 +83,7 @@ public class Speakers implements ISpeakers {
 		Runnable stop = () -> {
 			interrupt = true;
 			state = PausableState.NOT_STARTED;
+			EventManager.unregisterListener(this);
 		};
 		EventManager.callEvent(new SpeakersInterruptPreEvent(this), stop, new SpeakersInterruptPostEvent(this));
 	}
@@ -112,6 +118,17 @@ public class Speakers implements ISpeakers {
 		return state;
 	}
 
+	@EventHandler
+	private void onMixerEmptyStatusChange(MixerEmptyStatusChangePostEvent event) {
+		if (!event.getMixer().equals(mixer))
+			return;
+
+		internalPauseRequested = event.isEmpty();
+
+		if (!event.isEmpty())
+			signal();
+	}
+
 	/**
 	 * Forces the speaker thread to sleep until the {@link #sleep} condition is signaled.
 	 */
@@ -119,12 +136,8 @@ public class Speakers implements ISpeakers {
 		lock.lock();
 		try {
 			speakers.flush();
-			speakers.stop();
-			speakers.close();
 			sleep.await();
-			speakers.open();
-			speakers.start();
-		} catch (InterruptedException | LineUnavailableException e) {
+		} catch (InterruptedException e) {
 			// do nothing
 		} finally {
 			lock.unlock();
@@ -145,6 +158,7 @@ public class Speakers implements ISpeakers {
 
 	private void execute() {
 		speakers.start();
+		sleep();
 		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
@@ -154,7 +168,7 @@ public class Speakers implements ISpeakers {
 					continue;
 
 				// Pause request while waiting for data, if data has been received, then ignore.
-				if (pauseRequested) {
+				if (internalPauseRequested || pauseRequested) {
 					sleep();
 					continue;
 				}
