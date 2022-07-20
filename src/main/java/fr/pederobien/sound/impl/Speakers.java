@@ -22,6 +22,8 @@ import fr.pederobien.sound.event.SpeakersStartPostEvent;
 import fr.pederobien.sound.event.SpeakersStartPreEvent;
 import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.ByteWrapper;
+import fr.pederobien.utils.CancellableBlockingQueueTask;
+import fr.pederobien.utils.CancellableBlockingQueueTask.Cancellable;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -29,6 +31,7 @@ import fr.pederobien.utils.event.IEventListener;
 public class Speakers implements ISpeakers, IEventListener {
 	private SourceDataLine speakers;
 	private Thread thread;
+	private CancellableBlockingQueueTask<Object> flushSpeakers;
 	private Mixer mixer;
 	private Lock lock;
 	private Condition sleep;
@@ -60,6 +63,9 @@ public class Speakers implements ISpeakers, IEventListener {
 
 				speakers.open(SoundConstants.SPEAKERS_AUDIO_FORMAT);
 
+				flushSpeakers = new CancellableBlockingQueueTask<Object>("Flush_Speakers", isCancelled -> flushSpeakers(isCancelled));
+				flushSpeakers.start();
+
 				interrupt = false;
 				thread = new Thread(() -> execute(), "Speakers");
 				thread.setDaemon(true);
@@ -82,6 +88,7 @@ public class Speakers implements ISpeakers, IEventListener {
 
 		Runnable stop = () -> {
 			interrupt = true;
+			flushSpeakers.dispose();
 			state = PausableState.NOT_STARTED;
 			EventManager.unregisterListener(this);
 		};
@@ -135,8 +142,13 @@ public class Speakers implements ISpeakers, IEventListener {
 	private void sleep() {
 		lock.lock();
 		try {
-			speakers.flush();
+			Cancellable<Object> cancellable = flushSpeakers.add(new Object());
 			sleep.await();
+
+			// Trying to get lock in order to wait for the flushing operation if not over while waking up
+			cancellable.setCancelled(true);
+			lock.lock();
+			lock.unlock();
 		} catch (InterruptedException e) {
 			// do nothing
 		} finally {
@@ -158,14 +170,10 @@ public class Speakers implements ISpeakers, IEventListener {
 
 	private void execute() {
 		speakers.start();
-		sleep();
 		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
 				int read = mixer.read(data, 0, data.length);
-
-				if (read == 0)
-					continue;
 
 				// Pause request while waiting for data, if data has been received, then ignore.
 				if (internalPauseRequested || pauseRequested) {
@@ -173,13 +181,16 @@ public class Speakers implements ISpeakers, IEventListener {
 					continue;
 				}
 
+				if (read == 0)
+					continue;
+
 				if (read != data.length)
 					data = ByteWrapper.wrap(data).extract(0, read);
 
 				EventManager.callEvent(new SpeakersDataReadEvent(this, data));
 				speakers.write(data, 0, read);
 
-				Thread.sleep(5);
+				Thread.sleep(8);
 			} catch (InterruptedException e) {
 				// Do nothing
 			} catch (Exception e) {
@@ -191,5 +202,29 @@ public class Speakers implements ISpeakers, IEventListener {
 		speakers.stop();
 		speakers.flush();
 		speakers.close();
+	}
+
+	private void flushSpeakers(Cancellable<Object> cancellable) {
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			return;
+		}
+
+		if (cancellable.isCancelled())
+			return;
+
+		lock.lock();
+		try {
+			speakers.flush();
+			speakers.stop();
+			speakers.close();
+			speakers.open();
+			speakers.start();
+		} catch (LineUnavailableException e) {
+			// do nothing
+		} finally {
+			lock.unlock();
+		}
 	}
 }
