@@ -94,6 +94,7 @@ public class AudioStream implements IEventListener {
 	public void clear() {
 		lock.lock();
 		try {
+			extractor.dispose();
 			samples.clear();
 		} finally {
 			lock.unlock();
