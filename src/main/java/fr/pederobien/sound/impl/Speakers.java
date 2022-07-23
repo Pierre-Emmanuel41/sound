@@ -206,7 +206,7 @@ public class Speakers implements ISpeakers, IEventListener {
 
 	private void flushSpeakers(Cancellable<Object> cancellable) {
 		try {
-			Thread.sleep(1000);
+			Thread.sleep(2000);
 		} catch (InterruptedException e) {
 			return;
 		}
