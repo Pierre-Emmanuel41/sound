@@ -11,20 +11,20 @@ public class AudioPacket {
 	 * 
 	 * @param key          The key associated to this audio packet.
 	 * @param data         The audio sample.
+	 * @param isMono       True is the {@link #getData()} returns a mono signal, false means a stereo signal.
+	 * @param isEncoded    True if the data has been encoded, false otherwise.
 	 * @param globalVolume The global volume of the sample.
 	 * @param rightVolume  The volume for the right channel.
 	 * @param leftVolume   The volume for the left channel.
-	 * @param isMono       True is the {@link #getData()} returns a mono signal, false means a stereo signal.
-	 * @param isEncoded    True if the data has been encoded, false otherwise.
 	 */
-	public AudioPacket(String key, byte[] data, double globalVolume, double rightVolume, double leftVolume, boolean isMono, boolean isEncoded) {
+	public AudioPacket(String key, byte[] data, boolean isMono, boolean isEncoded, double globalVolume, double rightVolume, double leftVolume) {
 		this.key = key;
 		this.data = data;
+		this.isMono = isMono;
+		this.isEncoded = isEncoded;
 		this.globalVolume = globalVolume;
 		this.rightVolume = rightVolume;
 		this.leftVolume = leftVolume;
-		this.isMono = isMono;
-		this.isEncoded = isEncoded;
 	}
 
 	/**
@@ -41,6 +41,20 @@ public class AudioPacket {
 	 */
 	public byte[] getData() {
 		return data;
+	}
+
+	/**
+	 * @return True is the {@link #getData()} returns a mono signal, false means a stereo signal.
+	 */
+	public boolean isMono() {
+		return isMono;
+	}
+
+	/**
+	 * @return True if the data has been encoded, false otherwise.
+	 */
+	public boolean isEncoded() {
+		return isEncoded;
 	}
 
 	/**
@@ -62,19 +76,5 @@ public class AudioPacket {
 	 */
 	public double getLeftVolume() {
 		return leftVolume;
-	}
-
-	/**
-	 * @return True is the {@link #getData()} returns a mono signal, false means a stereo signal.
-	 */
-	public boolean isMono() {
-		return isMono;
-	}
-
-	/**
-	 * @return True if the data has been encoded, false otherwise.
-	 */
-	public boolean isEncoded() {
-		return isEncoded;
 	}
 }
