@@ -78,9 +78,6 @@ public class Mixer implements IMixer, IEventListener {
 	 * @return The number of bytes read into buffer.
 	 */
 	protected int read(byte[] data, int offset, int length) {
-		if (isEmpty.get())
-			return 0;
-
 		int readBytes = mergeStreams(data, offset, length, readStreams(length));
 		if (readBytes == 0) {
 			currentEmptyCall++;

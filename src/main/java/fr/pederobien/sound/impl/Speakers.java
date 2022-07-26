@@ -170,6 +170,7 @@ public class Speakers implements ISpeakers, IEventListener {
 
 	private void execute() {
 		speakers.start();
+		sleep();
 		while (!interrupt) {
 			try {
 				byte[] data = new byte[SoundConstants.CHUNK_LENGTH];
