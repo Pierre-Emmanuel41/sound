@@ -81,11 +81,11 @@ public class Mixer implements IMixer, IEventListener {
 		int readBytes = mergeStreams(data, offset, length, readStreams(length));
 		if (readBytes == 0) {
 			currentEmptyCall++;
-			if (currentEmptyCall == EMPTY_CALL_THRESHOLD) {
+			if (currentEmptyCall == EMPTY_CALL_THRESHOLD)
 				setEmpty(true);
-				currentEmptyCall = 0;
-			}
 		}
+
+		currentEmptyCall = 0;
 		return readBytes;
 	}
 
