@@ -60,6 +60,7 @@ public class Mixer implements IMixer, IEventListener {
 				entry.getValue().clear();
 
 			streams.clear();
+			setEmpty(true);
 		} finally {
 			lock.unlock();
 		}
