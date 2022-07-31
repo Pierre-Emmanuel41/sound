@@ -67,6 +67,7 @@ public class Microphone implements IMicrophone, IEventListener {
 				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
 
 				interrupt = false;
+				pauseRequested = false;
 				thread = new Thread(() -> execute(), "Microphone");
 				thread.setDaemon(true);
 				thread.start();

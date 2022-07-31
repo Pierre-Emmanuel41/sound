@@ -67,6 +67,8 @@ public class Speakers implements ISpeakers, IEventListener {
 				flushSpeakers.start();
 
 				interrupt = false;
+				internalPauseRequested = false;
+				pauseRequested = false;
 				thread = new Thread(() -> execute(), "Speakers");
 				thread.setDaemon(true);
 				thread.start();
