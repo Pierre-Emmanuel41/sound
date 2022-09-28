@@ -43,13 +43,34 @@ public class Mixer implements IMixer, IEventListener {
 
 	@Override
 	public void put(AudioPacket packet) {
-		AudioStream stream = getStream(packet.getKey());
-		if (stream == null)
-			putStream(packet.getKey(), stream = new AudioStream(packet.getKey()));
+		lock.lock();
+		try {
+			AudioStream stream = streams.get(packet.getKey());
+			if (stream == null)
+				streams.put(packet.getKey(), stream = new AudioStream(packet.getKey()));
 
-		stream.extract(packet);
-		if (stream.size() > BUFFERED_SAMPLES_SIZE)
-			setEmpty(false);
+			stream.extract(packet);
+			if (stream.size() > BUFFERED_SAMPLES_SIZE)
+				setEmpty(false);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	@Override
+	public boolean renameStream(String oldKey, String newKey) {
+		lock.lock();
+		try {
+			AudioStream stream = streams.remove(oldKey);
+			if (stream == null)
+				return false;
+
+			stream.setKey(newKey);
+			streams.put(stream.getKey(), stream);
+			return true;
+		} finally {
+			lock.unlock();
+		}
 	}
 
 	@Override
@@ -182,37 +203,6 @@ public class Mixer implements IMixer, IEventListener {
 		}
 
 		return readBytes;
-	}
-
-	/**
-	 * Thread safe operation in order to get the stream associated to the given key.
-	 * 
-	 * @param key The key used to get the associated audio stream.
-	 * 
-	 * @return The audio stream if registered, null otherwise.
-	 */
-	private AudioStream getStream(String key) {
-		lock.lock();
-		try {
-			return streams.get(key);
-		} finally {
-			lock.unlock();
-		}
-	}
-
-	/**
-	 * Register the given audio stream with the specified key.
-	 * 
-	 * @param key    The key used to retrieve the audio stream.
-	 * @param stream The stream associated to the key.
-	 */
-	private void putStream(String key, AudioStream stream) {
-		lock.lock();
-		try {
-			streams.put(key, stream);
-		} finally {
-			lock.unlock();
-		}
 	}
 
 	/**

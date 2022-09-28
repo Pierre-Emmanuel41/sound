@@ -39,6 +39,15 @@ public class AudioStream implements IEventListener {
 	}
 
 	/**
+	 * Set the key associated to this stream.
+	 * 
+	 * @param key The key stream.
+	 */
+	public void setKey(String key) {
+		this.key = key;
+	}
+
+	/**
 	 * Extract asynchronously the audio sample associated to the given audio packet.
 	 * 
 	 * @param packet The audio packet that contains audio sample data.
