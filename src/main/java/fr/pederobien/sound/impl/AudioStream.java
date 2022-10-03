@@ -19,6 +19,7 @@ public class AudioStream implements IEventListener {
 	private Lock lock;
 	private int size;
 	private BlockingQueueTask<AudioPacket> extractor;
+	private float volume;
 
 	public AudioStream(String key) {
 		this.key = key;
@@ -27,6 +28,7 @@ public class AudioStream implements IEventListener {
 		finished = new ArrayList<AudioSample>();
 		lock = new ReentrantLock(true);
 		extractor = new BlockingQueueTask<AudioPacket>(String.format("%s_Extractor", key), packet -> extractPacket(packet));
+		volume = 1;
 		extractor.start();
 		EventManager.registerListener(this);
 	}
@@ -45,6 +47,22 @@ public class AudioStream implements IEventListener {
 	 */
 	public void setKey(String key) {
 		this.key = key;
+	}
+
+	/**
+	 * @return The global volume associated to this audio stream.
+	 */
+	public double getVolume() {
+		return volume;
+	}
+
+	/**
+	 * Set the global sound volume associated to this stream. The new volume should be in range [0,2].
+	 * 
+	 * @param volume The new volume of this stream.
+	 */
+	public void setVolume(float volume) {
+		this.volume = volume < 0 ? 0 : volume > 2 ? 2 : volume;
 	}
 
 	/**
@@ -110,6 +128,11 @@ public class AudioStream implements IEventListener {
 		}
 	}
 
+	@EventHandler
+	private void onDecodeFail(DecoderFailToDecodeEvent event) {
+		System.err.println("[AudioStream] Fail to decode bytes array");
+	}
+
 	/**
 	 * Transform the given bytes array that represent a mono signal to a stereo signal.
 	 * 
@@ -122,6 +145,8 @@ public class AudioStream implements IEventListener {
 		int index = 0;
 		for (int i = 0; i < mono.length; i += 2) {
 			short initialShort = (short) ((mono[i + 1] & 0xff) << 8 | mono[i] & 0xff);
+			int withVolume = (int) (initialShort * volume);
+			initialShort = withVolume > Short.MAX_VALUE ? Short.MAX_VALUE : withVolume < Short.MIN_VALUE ? Short.MIN_VALUE : (short) withVolume;
 
 			data[index] = (byte) initialShort;
 			data[index + 1] = (byte) (initialShort >> 8);
@@ -131,11 +156,6 @@ public class AudioStream implements IEventListener {
 		}
 
 		return data;
-	}
-
-	@EventHandler
-	private void onDecodeFail(DecoderFailToDecodeEvent event) {
-		System.err.println("[AudioStream] Fail to decode bytes array");
 	}
 
 	/**

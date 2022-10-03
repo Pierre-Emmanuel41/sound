@@ -35,6 +35,16 @@ public interface IMixer {
 	boolean renameStream(String oldKey, String newKey);
 
 	/**
+	 * Set the volume of the stream associated to the given key. The new volume should be in range [0,2].
+	 * 
+	 * @param key    The key used to retrieve the audio stream.
+	 * @param volume The new volume of the audio stream.
+	 * 
+	 * @return True if a stream exists for the given key.
+	 */
+	boolean setStreamVolume(String key, float volume);
+
+	/**
 	 * Removes all registered audio streams.
 	 */
 	void clear();

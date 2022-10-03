@@ -72,6 +72,23 @@ public class Mixer implements IMixer, IEventListener {
 	}
 
 	@Override
+	public boolean setStreamVolume(String key, float volume) {
+		AudioStream stream = null;
+		lock.lock();
+		try {
+			stream = streams.get(key);
+		} finally {
+			lock.unlock();
+		}
+
+		if (stream == null)
+			return false;
+
+		stream.setVolume(volume);
+		return true;
+	}
+
+	@Override
 	public void clear() {
 		lock.lock();
 		try {
