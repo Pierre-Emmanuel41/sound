@@ -77,25 +77,25 @@ public class Mixer implements IMixer, IEventListener {
 		lock.lock();
 		try {
 			stream = streams.get(key);
+			if (stream == null)
+				return false;
+
+			stream.setVolume(volume);
+			return true;
 		} finally {
 			lock.unlock();
 		}
-
-		if (stream == null)
-			return false;
-
-		stream.setVolume(volume);
-		return true;
 	}
 
 	@Override
-	public void clear() {
+	public void clear(boolean full) {
 		lock.lock();
 		try {
 			for (Map.Entry<String, AudioStream> entry : streams.entrySet())
-				entry.getValue().clear();
+				entry.getValue().clear(full);
 
-			streams.clear();
+			if (full)
+				streams.clear();
 		} finally {
 			lock.unlock();
 		}

@@ -118,11 +118,13 @@ public class AudioStream implements IEventListener {
 	/**
 	 * Removes all audio samples registered for this audio stream.
 	 */
-	public void clear() {
+	public void clear(boolean full) {
 		lock.lock();
 		try {
-			extractor.dispose();
 			samples.clear();
+
+			if (full)
+				extractor.dispose();
 		} finally {
 			lock.unlock();
 		}

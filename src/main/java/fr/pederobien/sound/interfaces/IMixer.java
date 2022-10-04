@@ -45,7 +45,9 @@ public interface IMixer {
 	boolean setStreamVolume(String key, float volume);
 
 	/**
-	 * Removes all registered audio streams.
+	 * Removes all samples associated to each audio streams.
+	 * 
+	 * @param full Set to true in order to remove also all streams.
 	 */
-	void clear();
+	void clear(boolean full);
 }
