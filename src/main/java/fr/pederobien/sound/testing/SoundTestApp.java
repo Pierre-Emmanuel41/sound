@@ -14,10 +14,10 @@ public class SoundTestApp {
 	private static void soundApiTest() {
 		SoundTests tests = new SoundTests();
 
-		// tests.soundApiInitializeDisposeTest();
-		// tests.speakersSimpleOpenCloseTest();
-		// tests.microphoneSimpleOpenCloseTest();
-		// tests.microphoneOpenFetchCloseTest();
+		tests.soundApiInitializeDisposeTest();
+		tests.speakersSimpleOpenCloseTest();
+		tests.microphoneSimpleOpenCloseTest();
+		tests.microphoneOpenFetchCloseTest();
 		tests.playBackTest();
 		tests.playBackRightThenLeftThenBothTest();
 		tests.microphoneOpenCloseTest();
