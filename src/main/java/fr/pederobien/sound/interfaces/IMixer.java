@@ -46,8 +46,9 @@ public interface IMixer {
 	/**
 	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
 	 * <p>
-	 * There is no registered streams. </br>
-	 * For each registered stream, all of the audio samples have been read.</br>
+	 * There is no registered streams</br>
+	 * All the streams are empty</br>
+	 * The input bytes array is full.
 	 * 
 	 * @param data   The buffer to read the bytes into.
 	 * @param offset The start index to read bytes into.

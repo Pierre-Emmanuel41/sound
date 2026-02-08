@@ -106,8 +106,9 @@ public class Mixer implements IMixer {
 	}
 
 	/**
-	 * Read each stream from the underlying stream map until one of the following conditions is met: All the streams are empty, the
-	 * input bytes array is full.
+	 * Read each stream from the underlying stream map until one of the following conditions is met:</br>
+	 * All the streams are empty</br>
+	 * The input bytes array is full.
 	 * 
 	 * @param data The bytes array to fill with the content of the each audio stream.
 	 * @return The number of bytes written in the input bytes array.
