@@ -1,28 +1,22 @@
 package fr.pederobien.sound.interfaces;
 
-import javax.sound.sampled.TargetDataLine;
-
-import fr.pederobien.utils.IPausable;
-
-public interface IMicrophone extends IPausable {
+public interface IMicrophone {
 
 	/**
-	 * Starts the microphone thread in order to receive data from the underlying {@link TargetDataLine}.
+	 * Opens the access to the microphone. If an error occurred while accessing the microphone, an exception shall be thrown.
 	 */
-	public void start();
+	void open() throws Exception;
 
 	/**
-	 * Stops the microphone thread. It will never be possible to start this microphone again. It release each system resources.
+	 * Closes the access to the microphone. If an error occurred while closing the microphone, an exception shall be thrown.
 	 */
-	public void stop();
+	void close() throws Exception;
 
 	/**
-	 * Force the microphone thread to be paused until the method {@link #resume()} is called.
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall returns a
+	 * null bytes array.
+	 * 
+	 * @return The processed bytes array from the microphone.
 	 */
-	public void pause();
-
-	/**
-	 * Resume the microphone thread in order to received again data from the underlying {@link TargetDataLine}.
-	 */
-	public void resume();
+	byte[] fetch() throws Exception;
 }

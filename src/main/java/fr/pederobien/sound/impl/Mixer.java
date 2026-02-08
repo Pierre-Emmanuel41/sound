@@ -1,232 +1,161 @@
 package fr.pederobien.sound.impl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.SourceDataLine;
+import javax.sound.sampled.TargetDataLine;
+
+import fr.pederobien.sound.interfaces.IAudioStream;
 import fr.pederobien.sound.interfaces.IMixer;
-import fr.pederobien.utils.event.IEventListener;
+import fr.pederobien.utils.Disposable;
+import fr.pederobien.utils.IDisposable;
 
-public class Mixer implements IMixer, IEventListener {
-	private static final int BUFFERED_SAMPLES_SIZE = 5;
-	private static final int EMPTY_CALL_THRESHOLD = 20;
-
-	private Map<String, AudioStream> streams;
-	private double globalVolume;
-	private Lock lock;
-	private Condition isEmpty;
-	private int currentEmptyCall;
+public class Mixer implements IMixer {
+	private final StreamMap streams;
+	private final Lock lock;
+	private final Condition isEmpty;
+	private final IDisposable disposable;
+	private TargetDataLine microphoneLine;
+	private SourceDataLine speakersLine;
+	private boolean waiting;
 
 	public Mixer() {
-		streams = new HashMap<String, AudioStream>();
-		globalVolume = 1.0;
+		streams = new StreamMap(this);
 		lock = new ReentrantLock(true);
 		isEmpty = lock.newCondition();
+		disposable = new Disposable();
+		waiting = false;
 	}
 
 	@Override
-	public double getGlobalVolume() {
-		return globalVolume;
+	public void initialize() throws Exception {
+		disposable.checkDisposed();
+		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(44100f, 16, 1, true, false)));
+		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(44100f, 16, 2, true, false)));
 	}
 
 	@Override
-	public void setGlobalVolume(double globalVolume) {
-		this.globalVolume = globalVolume;
-	}
+	public void dispose() {
+		if (!disposable.dispose())
+			return;
 
-	@Override
-	public void put(AudioPacket packet) {
-		lock.lock();
-		try {
-			AudioStream stream = streams.get(packet.getKey());
-			if (stream == null)
-				streams.put(packet.getKey(), stream = new AudioStream(packet.getKey()));
+		if (waiting)
+			notifyOneStreamHasBeenFilled();
 
-			stream.extract(packet);
-			if (stream.size() > BUFFERED_SAMPLES_SIZE)
-				signal();
-		} finally {
-			lock.unlock();
+		// Closing microphone line
+		if (microphoneLine != null && microphoneLine.isOpen()) {
+			microphoneLine.stop();
+			microphoneLine.close();
+		}
+
+		// Closing speakers line
+		if (speakersLine != null && speakersLine.isOpen()) {
+			speakersLine.drain();
+			speakersLine.stop();
+			speakersLine.close();
 		}
 	}
 
 	@Override
-	public boolean renameStream(String oldKey, String newKey) {
-		lock.lock();
-		try {
-			AudioStream stream = streams.remove(oldKey);
-			if (stream == null)
-				return false;
-
-			stream.setKey(newKey);
-			streams.put(stream.getKey(), stream);
-			return true;
-		} finally {
-			lock.unlock();
-		}
+	public TargetDataLine getMicrophoneLine() {
+		return microphoneLine;
 	}
 
 	@Override
-	public boolean setStreamVolume(String key, float volume) {
-		AudioStream stream = null;
-		lock.lock();
-		try {
-			stream = streams.get(key);
-			if (stream == null)
-				return false;
-
-			stream.setVolume(volume);
-			return true;
-		} finally {
-			lock.unlock();
-		}
+	public SourceDataLine getSpeakersLine() {
+		return speakersLine;
 	}
 
 	@Override
-	public void clear(boolean full) {
-		lock.lock();
-		try {
-			for (Map.Entry<String, AudioStream> entry : streams.entrySet())
-				entry.getValue().clear(full);
+	public byte[] processMicrophoneData(byte[] data) {
+		// TODO: Post process input data
+		return data;
+	}
 
-			if (full)
-				streams.clear();
-		} finally {
-			lock.unlock();
+	@Override
+	public IAudioStream getOrCreateStream(String name) {
+		return streams.getOrCreateStream(name);
+	}
+
+	@Override
+	public int read(byte[] data) {
+		if (disposable.isDisposed())
+			return 0;
+
+		int read = readAndMergeStreams(data);
+
+		// All streams were empty
+		if (read == 0) {
+			waitForStreamsToBeFilled();
+			return read(data);
 		}
+
+		return read;
+	}
+
+	@Override
+	public void flush() {
+		streams.flush();
 	}
 
 	/**
-	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
-	 * <p>
-	 * There is no registered streams. </br>
-	 * For each registered stream, all of the audio samples have been read.</br>
+	 * Read each stream from the underlying stream map until one of the following conditions is met: All the streams are empty, the
+	 * input bytes array is full.
 	 * 
-	 * @param data   The buffer to read the bytes into.
-	 * @param offset The start index to read bytes into.
-	 * @param length The maximum number of bytes that should be read.
-	 * 
-	 * @return The number of bytes read into buffer.
+	 * @param data The bytes array to fill with the content of the each audio stream.
+	 * @return The number of bytes written in the input bytes array.
 	 */
-	protected int read(byte[] data, int offset, int length) {
-		int readBytes = mergeStreams(data, offset, length, readStreams(length));
-		if (readBytes == 0) {
-			currentEmptyCall++;
-			if (currentEmptyCall == EMPTY_CALL_THRESHOLD) {
-				await();
-				currentEmptyCall = 0;
-			}
-		} else
-			currentEmptyCall = 0;
+	private int readAndMergeStreams(byte[] data) {
+		for (int i = 0; i < data.length; i += 4) {
+			short[] left = new short[1];
+			short[] right = new short[1];
 
-		return readBytes;
+			// Each stream is empty
+			if (!streams.read(left, right))
+				return i;
+
+			// Left channel
+			data[i] = (byte) (left[0] & 0xFF); // LSB
+			data[i + 1] = (byte) ((left[0] >> 8) & 0xFF); // MSB
+
+			// Right channel
+			data[i + 2] = (byte) (right[0] & 0xFF); // LSB
+			data[i + 3] = (byte) ((right[0] >> 8) & 0xFF); // MSB
+		}
+
+		return data.length;
 	}
 
 	/**
-	 * Read bytes from each registered streams.
-	 * 
-	 * @param length The number of bytes to read.
-	 * 
-	 * @return A list that contains the read array associated to each stream.
+	 * Signal that there are streams to be read.
 	 */
-	private List<int[]> readStreams(int length) {
-		List<int[]> streamBuffers = new ArrayList<int[]>();
+	protected void notifyOneStreamHasBeenFilled() {
+		if (!waiting)
+			return;
 
-		Iterator<AudioStream> iterator;
-		lock.lock();
+		waiting = false;
 		try {
-			iterator = new ArrayList<AudioStream>(streams.values()).iterator();
+			lock.lock();
+			isEmpty.signal();
 		} finally {
 			lock.unlock();
 		}
-
-		// Iterating over a copy of the stream collection in order to put samples in a stream while reading
-		while (iterator.hasNext()) {
-			// Two bytes for one integer.
-			int[] buffer = new int[length / 2];
-			int size = iterator.next().read(buffer, buffer.length);
-
-			if (size == length) {
-				streamBuffers.add(buffer);
-				continue;
-			}
-
-			// Fitting the array with the number of read bytes.
-			int[] streamBuffer = new int[size];
-			System.arraycopy(buffer, 0, streamBuffer, 0, size);
-			streamBuffers.add(streamBuffer);
-		}
-
-		return streamBuffers;
-	}
-
-	/**
-	 * Merge each integers array registered in the <code>streamBuffers</code> list in order to create one bytes array that contains
-	 * the sum of each registered stream.
-	 * 
-	 * @param data          The buffer to read the bytes into.
-	 * @param offset        The start index to read bytes into.
-	 * @param length        The maximum number of bytes that should be read.
-	 * @param streamBuffers The list that contains the data of each registered stream.
-	 * 
-	 * @return the number of read bytes
-	 */
-	private int mergeStreams(byte[] data, int offset, int length, List<int[]> streamBuffers) {
-		int currentLeft, currentRight, bufferIndex = 0;
-		boolean bytesRead = false;
-		int readBytes = 0;
-		for (int index = offset; index < length; index += 4) {
-			// New temporal step so initialization
-			currentLeft = 0;
-			currentRight = 0;
-			// Summing the value from each stream
-			for (int[] buffer : streamBuffers) {
-				try {
-					currentLeft += buffer[bufferIndex] * globalVolume;
-					currentRight += buffer[bufferIndex + 1] * globalVolume;
-					bytesRead = true;
-				} catch (IndexOutOfBoundsException e) {
-					// Exception thrown when there was not enough registered bytes in the stream.
-					// No need to keep reading the current buffer.
-					continue;
-				}
-			}
-
-			// If no bytes has been read, then no need to go further.
-			if (!bytesRead)
-				return 0;
-
-			// Clipping
-			currentLeft = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, currentLeft));
-			currentRight = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, currentRight));
-
-			// left channel bytes
-			data[index + 1] = (byte) ((currentLeft >> 8) & 0xFF); // MSB
-			data[index] = (byte) (currentLeft & 0xFF); // LSB
-			// then right channel bytes
-			data[index + 3] = (byte) ((currentRight >> 8) & 0xFF); // MSB
-			data[index + 2] = (byte) (currentRight & 0xFF); // LSB
-
-			// Updating the number of read bytes
-			readBytes += 4;
-
-			bufferIndex += 2;
-		}
-
-		return readBytes;
 	}
 
 	/**
 	 * Wait for streams to be read.
 	 */
-	private void await() {
-		lock.lock();
+	private void waitForStreamsToBeFilled() {
 		try {
+			lock.lock();
+			waiting = true;
 			isEmpty.await();
 		} catch (InterruptedException e) {
 
@@ -235,15 +164,113 @@ public class Mixer implements IMixer, IEventListener {
 		}
 	}
 
-	/**
-	 * Signal that there are streams to be read.
-	 */
-	private void signal() {
-		lock.lock();
-		try {
-			isEmpty.signal();
-		} finally {
-			lock.unlock();
+	private class StreamMap {
+
+		private class Stream {
+			private String name;
+			private IAudioStream audio;
+
+			/**
+			 * Creates a stream element based on the given name and audio stream.
+			 * 
+			 * @param name   The name of the stream
+			 * @param stream
+			 */
+			private Stream(String name, IAudioStream audio) {
+				this.name = name;
+				this.audio = audio;
+			}
+
+			/**
+			 * @return The name of the audio stream.
+			 */
+			public String getName() {
+				return name;
+			}
+
+			/**
+			 * @return The audio stream associated to the name.
+			 */
+			public IAudioStream getAudio() {
+				return audio;
+			}
+		}
+
+		private final Mixer mixer;
+		private final List<Stream> streams;
+		private final Object lock;
+
+		private StreamMap(Mixer mixer) {
+			this.mixer = mixer;
+			streams = new ArrayList<Stream>();
+			lock = new Object();
+		}
+
+		/**
+		 * Get a stream associated to the given name if registered. If there is no stream associated to the given name, one is created.
+		 * 
+		 * @param name The name of the stream to retrieve.
+		 * @return The stream associated to the given name.
+		 */
+		private IAudioStream getOrCreateStream(String name) {
+			synchronized (lock) {
+				for (Stream stream : streams)
+					if (stream.getName().equals(name))
+						return stream.getAudio();
+			}
+
+			// Stream not found
+			Stream stream = new Stream(name, new AudioStream(mixer));
+			streams.add(stream);
+			return stream.getAudio();
+		}
+
+		/**
+		 * Read one sample from each stream registered in this map, sums the result, perform clipping checks.
+		 * 
+		 * @param left  The resulting sample for the left channel.
+		 * @param right The resulting sample for the right channel.
+		 * @return True if there was at least one non-empty stream, false otherwise.
+		 */
+		private boolean read(short[] left, short[] right) {
+			int sumLeft = 0;
+			int sumRight = 0;
+			boolean read = false;
+
+			synchronized (lock) {
+				for (Stream stream : streams) {
+					short[] sampleLeft = new short[1];
+					short[] sampleRight = new short[1];
+
+					// Getting left and right sample for the stream
+					if (stream.getAudio().read(sampleLeft, sampleRight)) {
+						sumLeft += sampleLeft[0];
+						sumRight += sampleRight[0];
+						read = true;
+					}
+				}
+			}
+
+			// All streams are empty
+			if (!read)
+				return false;
+
+			// Clipping
+			left[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sumLeft));
+			right[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sumRight));
+
+			return true;
+		}
+
+		/**
+		 * Clears each audio stream registered in this mixer but leave the streams list unmodified.
+		 */
+		private void flush() {
+			synchronized (lock) {
+				for (Stream stream : streams) {
+					stream.getAudio().flush();
+				}
+			}
 		}
 	}
 }

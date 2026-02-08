@@ -1,215 +1,92 @@
 package fr.pederobien.sound.impl;
 
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.TargetDataLine;
 
-import fr.pederobien.sound.event.EncoderFailToEncodeEvent;
-import fr.pederobien.sound.event.MicrophoneDataEncodedEvent;
-import fr.pederobien.sound.event.MicrophoneInterruptPostEvent;
-import fr.pederobien.sound.event.MicrophoneInterruptPreEvent;
-import fr.pederobien.sound.event.MicrophonePausePostEvent;
-import fr.pederobien.sound.event.MicrophonePausePreEvent;
-import fr.pederobien.sound.event.MicrophoneRelaunchPostEvent;
-import fr.pederobien.sound.event.MicrophoneRelaunchPreEvent;
-import fr.pederobien.sound.event.MicrophoneStartPostEvent;
-import fr.pederobien.sound.event.MicrophoneStartPreEvent;
-import fr.pederobien.sound.interfaces.IEncoder;
+import fr.pederobien.sound.event.MicrophoneClosePostEvent;
+import fr.pederobien.sound.event.MicrophoneClosePreEvent;
+import fr.pederobien.sound.event.MicrophoneOpenPostEvent;
+import fr.pederobien.sound.event.MicrophoneOpenPreEvent;
 import fr.pederobien.sound.interfaces.IMicrophone;
-import fr.pederobien.utils.event.EventHandler;
+import fr.pederobien.sound.interfaces.IMixer;
+import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.utils.event.IEventListener;
+import fr.pederobien.utils.event.Logger;
 
-public class Microphone implements IMicrophone, IEventListener {
-	private static int N_SHORTS = 0xffff;
-	private static final short[] VOLUME_NORM_LUT = new short[N_SHORTS];
-	private static int MAX_NEGATIVE_AMPLITUDE = 0x8000;
-	private TargetDataLine microphone;
-	private IEncoder encoder;
-	private Thread thread;
-	private Lock lock;
-	private Condition sleep;
-	private boolean pauseRequested, interrupt;
-	private PausableState state;
+public class Microphone implements IMicrophone {
+	private final IMixer mixer;
+	private final TargetDataLine microphone;
+	private final AtomicBoolean isOpened;
+	private byte[] buffer;
 
-	static {
-		preComputeVolumeNormLUT();
-	}
+	/**
+	 * Creates a microphone.
+	 * 
+	 * @param mixer The mixer used to create the underlying TargetDataLine and post process the microphone output.
+	 */
+	protected Microphone(IMixer mixer) {
+		this.mixer = mixer;
+		this.microphone = mixer.getMicrophoneLine();
 
-	protected Microphone() {
-		try {
-			microphone = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, SoundConstants.MICROPHONE_AUDIO_FORMAT));
-			lock = new ReentrantLock(true);
-			sleep = lock.newCondition();
-			encoder = new Encoder();
-			state = PausableState.NOT_STARTED;
-		} catch (LineUnavailableException e) {
-			e.printStackTrace();
-		}
+		isOpened = new AtomicBoolean(false);
 	}
 
 	@Override
-	public void start() {
-		if (state == PausableState.STARTED || state == PausableState.PAUSED)
+	public void open() throws Exception {
+		// Microphone already opened
+		if (!isOpened.compareAndSet(false, true))
 			return;
 
-		Supplier<Boolean> start = () -> {
-			try {
-				if (microphone == null)
-					return false;
+		MicrophoneOpenPreEvent preEvent = new MicrophoneOpenPreEvent(this);
+		EventManager.callEvent(preEvent);
 
-				microphone.open(SoundConstants.MICROPHONE_AUDIO_FORMAT);
-
-				interrupt = false;
-				pauseRequested = false;
-				thread = new Thread(() -> execute(), "Microphone");
-				thread.setDaemon(true);
-				thread.start();
-				EventManager.registerListener(this);
-			} catch (LineUnavailableException e) {
-				e.printStackTrace();
-				return false;
-			}
-			state = PausableState.STARTED;
-			return true;
-		};
-		EventManager.callEvent(new MicrophoneStartPreEvent(this), start, new MicrophoneStartPostEvent(this));
-	}
-
-	@Override
-	public void stop() {
-		if (state == PausableState.NOT_STARTED)
+		if (preEvent.isCancelled())
 			return;
 
-		Runnable stop = () -> {
-			interrupt = true;
-			state = PausableState.NOT_STARTED;
-			EventManager.unregisterListener(this);
-		};
-		EventManager.callEvent(new MicrophoneInterruptPreEvent(this), stop, new MicrophoneInterruptPostEvent(this));
-	}
-
-	@Override
-	public void pause() {
-		if (state == PausableState.NOT_STARTED || state == PausableState.PAUSED)
-			return;
-
-		Runnable pause = () -> {
-			pauseRequested = true;
-			state = PausableState.PAUSED;
-		};
-		EventManager.callEvent(new MicrophonePausePreEvent(this), pause, new MicrophonePausePostEvent(this));
-	}
-
-	@Override
-	public void resume() {
-		if (state == PausableState.NOT_STARTED || state == PausableState.STARTED)
-			return;
-
-		Runnable resume = () -> {
-			pauseRequested = false;
-			state = PausableState.STARTED;
-			signal();
-		};
-		EventManager.callEvent(new MicrophoneRelaunchPreEvent(this), resume, new MicrophoneRelaunchPostEvent(this));
-	}
-
-	@Override
-	public PausableState getState() {
-		return state;
-	}
-
-	@EventHandler
-	private void onEncodeFail(EncoderFailToEncodeEvent event) {
-		System.err.println("[Microphone] Fail to encode bytes array");
-	}
-
-	private void execute() {
+		microphone.open();
 		microphone.start();
-		while (!interrupt) {
-			try {
-				byte[] data = new byte[SoundConstants.CHUNK_LENGTH * 2];
-				microphone.read(data, 0, data.length);
+		buffer = new byte[microphone.getBufferSize() / 5];
 
-				if (pauseRequested) {
-					sleep();
-					continue;
-				}
+		Logger.info("Microphone enabled");
+		EventManager.callEvent(new MicrophoneOpenPostEvent(this));
+	}
 
-				normalizeVolume(data);
+	@Override
+	public void close() throws Exception {
+		// Microphone is already closed
+		if (!isOpened.compareAndSet(true, false))
+			return;
 
-				byte[] encoded = encoder.encode(data);
-				if (encoded.length > 0)
-					EventManager.callEvent(new MicrophoneDataEncodedEvent(this, data, encoded));
+		MicrophoneClosePreEvent preEvent = new MicrophoneClosePreEvent(this);
+		EventManager.callEvent(preEvent);
 
-				Thread.sleep(5);
-			} catch (InterruptedException e) {
-				// Do nothing
-			} catch (Exception e) {
-				// In order to avoid to stop the speakers thread when an exception occurs while reading bytes.
-				e.printStackTrace();
-			}
-		}
+		if (preEvent.isCancelled())
+			return;
 
 		microphone.stop();
-		microphone.flush();
+		microphone.drain();
 		microphone.close();
+
+		Logger.info("Microphone disabled");
+		EventManager.callEvent(new MicrophoneClosePostEvent(this));
 	}
 
-	private void normalizeVolume(byte[] audioSamples) {
-		for (int i = 0; i < audioSamples.length; i += 2) {
-			short res = (short) ((audioSamples[i + 1] & 0xff) << 8 | audioSamples[i] & 0xff);
+	@Override
+	public byte[] fetch() {
+		while (true) {
+			int read = microphone.read(buffer, 0, buffer.length);
 
-			res = VOLUME_NORM_LUT[Math.min(res + MAX_NEGATIVE_AMPLITUDE, N_SHORTS - 1)];
-			audioSamples[i] = (byte) res;
-			audioSamples[i + 1] = (byte) (res >> 8);
-		}
-	}
+			// Checking condition to continue
+			if (read == 0)
+				return null;
 
-	private static void preComputeVolumeNormLUT() {
-		for (int s = 0; s < N_SHORTS; s++) {
-			double v = s - MAX_NEGATIVE_AMPLITUDE;
-			double sign = Math.signum(v);
-			// Non-linear volume boost function
-			// fitted exponential through (0,0), (10000, 25000), (32767, 32767)
-			VOLUME_NORM_LUT[s] = (short) (sign * (1.240769e-22 - (-4.66022 / 0.0001408133) * (1 - Math.exp(-0.0001408133 * v * sign))));
-		}
-	}
+			if (read != buffer.length)
+				buffer = ByteWrapper.wrap(buffer).extract(0, read);
 
-	/**
-	 * Forces the microphone thread to sleep until the {@link #sleep} condition is signaled.
-	 */
-	private void sleep() {
-		lock.lock();
-		try {
-			microphone.flush();
-			microphone.stop();
-			microphone.close();
-			sleep.await();
-			microphone.open();
-			microphone.start();
-		} catch (InterruptedException | LineUnavailableException e) {
-			// do nothing
-		} finally {
-			lock.unlock();
-		}
-	}
-
-	/**
-	 * Signal the {@link #sleep} condition in order to awake the microphone thread.
-	 */
-	private void signal() {
-		lock.lock();
-		try {
-			sleep.signal();
-		} finally {
-			lock.unlock();
+			byte[] processed = mixer.processMicrophoneData(buffer);
+			if (processed.length > 0)
+				return processed;
 		}
 	}
 }

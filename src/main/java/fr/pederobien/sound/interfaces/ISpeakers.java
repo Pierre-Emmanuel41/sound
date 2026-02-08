@@ -1,28 +1,19 @@
 package fr.pederobien.sound.interfaces;
 
-import javax.sound.sampled.SourceDataLine;
-
-import fr.pederobien.utils.IPausable;
-
-public interface ISpeakers extends IPausable {
+public interface ISpeakers {
 
 	/**
-	 * Starts the speakers thread in order to play data with the underlying {@link SourceDataLine}.
+	 * Opens the access to the speakers. If an error occurred while accessing to the speakers, and exception shall be thrown.
 	 */
-	public void start();
+	void open() throws Exception;
 
 	/**
-	 * Stops the speakers thread. It will never be possible to start the speakers again. It release each system resources.
+	 * Closes the access to the speakers. If an error occurred while closing the access to the speakers, an exception shall be thrown.
 	 */
-	public void stop();
+	void close() throws Exception;
 
 	/**
-	 * Force the speaker thread to be paused until the method {@link #resume()} is called.
+	 * @return The mixer used to manager audio streams.
 	 */
-	public void pause();
-
-	/**
-	 * Resumes the speakers thread in order to play again data with the underlying {@link SourceDataLine}.
-	 */
-	public void resume();
+	IMixer getMixer();
 }

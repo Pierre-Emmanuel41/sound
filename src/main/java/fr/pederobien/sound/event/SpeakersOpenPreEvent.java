@@ -3,15 +3,15 @@ package fr.pederobien.sound.event;
 import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.ICancellable;
 
-public class SpeakersInterruptPreEvent extends SpeakersEvent implements ICancellable {
+public class SpeakersOpenPreEvent extends SpeakersEvent implements ICancellable {
 	private boolean isCancelled;
 
 	/**
-	 * Creates an event thrown when the speakers are about to be interrupted.
+	 * Creates an event thrown when the speakers are about to start.
 	 * 
-	 * @param speakers The speakers that are about to be interrupted.
+	 * @param speakers The speakers that are about to start.
 	 */
-	public SpeakersInterruptPreEvent(ISpeakers speakers) {
+	public SpeakersOpenPreEvent(ISpeakers speakers) {
 		super(speakers);
 	}
 

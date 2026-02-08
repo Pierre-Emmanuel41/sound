@@ -3,15 +3,15 @@ package fr.pederobien.sound.event;
 import fr.pederobien.sound.interfaces.ISpeakers;
 import fr.pederobien.utils.ICancellable;
 
-public class SpeakersRelaunchPreEvent extends SpeakersEvent implements ICancellable {
+public class SpeakersClosePreEvent extends SpeakersEvent implements ICancellable {
 	private boolean isCancelled;
 
 	/**
-	 * Creates an event thrown when the speakers are about to be relaunched.
+	 * Creates an event thrown when the speakers are about to be paused.
 	 * 
-	 * @param speakers The speakers that is about to be relaunched.
+	 * @param speakers The speakers that are about to be paused.
 	 */
-	public SpeakersRelaunchPreEvent(ISpeakers speakers) {
+	public SpeakersClosePreEvent(ISpeakers speakers) {
 		super(speakers);
 	}
 
