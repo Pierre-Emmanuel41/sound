@@ -1,5 +1,0 @@
-[submodule "java-opus-wrapper"]
-	path = java-opus-wrapper
-	url = https://github.com/Pierre-Emmanuel41/java-opus-wrapper.git
-	update = rebase
-	branch = master
