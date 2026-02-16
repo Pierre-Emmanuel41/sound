@@ -61,9 +61,7 @@ public interface IMixer {
 	 * All the streams are empty</br>
 	 * The input bytes array is full.
 	 * 
-	 * @param data   The buffer to read the bytes into.
-	 * @param offset The start index to read bytes into.
-	 * @param length The maximum number of bytes that should be read.
+	 * @param data The buffer to read the bytes into.
 	 * 
 	 * @return The number of bytes read into buffer.
 	 */
