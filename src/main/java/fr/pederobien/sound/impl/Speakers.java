@@ -20,7 +20,6 @@ public class Speakers implements ISpeakers {
 	private final AtomicBoolean isOpened;
 
 	private Thread player;
-	private byte[] buffer;
 
 	/**
 	 * Creates speakers.
@@ -49,7 +48,6 @@ public class Speakers implements ISpeakers {
 		mixer.flush();
 		speakers.open();
 		speakers.start();
-		buffer = new byte[speakers.getBufferSize() / 5];
 
 		player = new Thread(this::play, "Speakers");
 		player.start();
@@ -86,6 +84,7 @@ public class Speakers implements ISpeakers {
 	private void play() {
 		while (isOpened.get()) {
 			try {
+				byte[] buffer = new byte[speakers.getBufferSize() / 5];
 				int read = mixer.read(buffer);
 
 				// Checking conditions to continue

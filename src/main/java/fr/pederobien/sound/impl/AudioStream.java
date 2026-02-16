@@ -72,9 +72,7 @@ public class AudioStream {
 				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
 		}
 
-		// At least 3 samples of 8820 bytes (almost 30ms)
-		if (queue.size() > 26460)
-			mixer.notifyOneStreamHasBeenFilled();
+		mixer.notifyOneStreamHasBeenFilled();
 	}
 
 	/**

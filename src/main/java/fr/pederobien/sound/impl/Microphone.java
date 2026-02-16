@@ -18,7 +18,6 @@ public class Microphone implements IMicrophone {
 	private final IMixer mixer;
 	private final TargetDataLine microphone;
 	private final AtomicBoolean isOpened;
-	private byte[] buffer;
 
 	/**
 	 * Creates a microphone.
@@ -46,7 +45,6 @@ public class Microphone implements IMicrophone {
 
 		microphone.open();
 		microphone.start();
-		buffer = new byte[microphone.getBufferSize() / 5];
 
 		Logger.info("Microphone enabled");
 		EventManager.callEvent(new MicrophoneOpenPostEvent(this));
@@ -75,6 +73,7 @@ public class Microphone implements IMicrophone {
 	@Override
 	public byte[] fetch() {
 		while (true) {
+			byte[] buffer = new byte[microphone.getBufferSize() / 5];
 			int read = microphone.read(buffer, 0, buffer.length);
 
 			// Checking condition to continue
