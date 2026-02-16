@@ -3,9 +3,7 @@ package fr.pederobien.sound.impl;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-import fr.pederobien.sound.interfaces.IAudioStream;
-
-public class AudioStream implements IAudioStream {
+public class AudioStream {
 	private final Mixer mixer;
 	private final Queue<Short> queue;
 	private final Object lock;
@@ -25,12 +23,47 @@ public class AudioStream implements IAudioStream {
 	}
 
 	/**
-	 * Adds the bytes array to the underlying queue. Thread safe operation.
+	 * Set the volume in the left channel.
 	 * 
-	 * @param sample The sample that contains the bytes array to add.
+	 * @param leftVolume The volume in the left channel.
 	 */
-	@Override
-	public void put(byte[] data) {
+	public void setLeftVolume(float leftVolume) {
+		this.leftVolume = leftVolume;
+	}
+
+	/**
+	 * Set the volume in the right channel.
+	 * 
+	 * @param rightVolume The volume in the right channel.
+	 */
+	public void setRightVolume(float rightVolume) {
+		this.rightVolume = rightVolume;
+	}
+
+	/**
+	 * Set the volume in both left and right channel.
+	 * 
+	 * @param globalVolume The volume in both left and right channel.
+	 */
+	public void setGlobalVolume(float globalVolume) {
+		this.globalVolume = globalVolume;
+	}
+
+	/**
+	 * Set the offset to apply to the global volume to modify the left and right volumes.
+	 * 
+	 * @param offset The value to apply on the global volume.
+	 */
+	public void setOffset(float offset) {
+		this.offset = offset;
+	}
+
+	/**
+	 * Add the given bytes array to the underlying queue of the stream.
+	 * 
+	 * @param data The bytes array that contains the audio sample to add to a stream.
+	 */
+	public void write(byte[] data) {
 		if (data == null)
 			return;
 
@@ -39,30 +72,18 @@ public class AudioStream implements IAudioStream {
 				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
 		}
 
-		mixer.notifyOneStreamHasBeenFilled();
+		// At least 3 samples of 8820 bytes (almost 30ms)
+		if (queue.size() > 26460)
+			mixer.notifyOneStreamHasBeenFilled();
 	}
 
-	@Override
-	public void setLeftVolume(float leftVolume) {
-		this.leftVolume = leftVolume;
-	}
-
-	@Override
-	public void setRightVolume(float rightVolume) {
-		this.rightVolume = rightVolume;
-	}
-
-	@Override
-	public void setGlobalVolume(float globalVolume) {
-		this.globalVolume = globalVolume;
-	}
-
-	@Override
-	public void setOffset(float offset) {
-		this.offset = offset;
-	}
-
-	@Override
+	/**
+	 * Read two bytes from the underlying queue, and update the left / right byte array with the correct samples value.
+	 * 
+	 * @param left  The sample for the left channel (left and global volume applied)
+	 * @param right The sample for the right channel (right and global volume applied)
+	 * @return True if data could be read, false otherwise.
+	 */
 	public boolean read(short[] left, short[] right) {
 		if (queue.isEmpty())
 			return false;
@@ -77,7 +98,9 @@ public class AudioStream implements IAudioStream {
 		return true;
 	}
 
-	@Override
+	/**
+	 * Clear the content of this audio stream so that the next call to the read method returns 0.
+	 */
 	public void flush() {
 		synchronized (lock) {
 			queue.clear();

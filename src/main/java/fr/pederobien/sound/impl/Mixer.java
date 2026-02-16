@@ -12,7 +12,6 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 
-import fr.pederobien.sound.interfaces.IAudioStream;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
@@ -80,8 +79,16 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public IAudioStream getOrCreateStream(String name) {
-		return streams.getOrCreateStream(name);
+	public void write(String name, byte[] data) {
+		streams.getOrCreateStream(name).write(data);
+	}
+
+	@Override
+	public void setVolumes(String name, float left, float right, float global) {
+		AudioStream stream = streams.getOrCreateStream(name);
+		stream.setLeftVolume(left);
+		stream.setRightVolume(right);
+		stream.setGlobalVolume(global);
 	}
 
 	@Override
@@ -141,9 +148,9 @@ public class Mixer implements IMixer {
 		if (!waiting)
 			return;
 
-		waiting = false;
 		try {
 			lock.lock();
+			waiting = false;
 			isEmpty.signal();
 		} finally {
 			lock.unlock();
@@ -169,7 +176,7 @@ public class Mixer implements IMixer {
 
 		private class Stream {
 			private String name;
-			private IAudioStream audio;
+			private AudioStream audio;
 
 			/**
 			 * Creates a stream element based on the given name and audio stream.
@@ -177,7 +184,7 @@ public class Mixer implements IMixer {
 			 * @param name   The name of the stream
 			 * @param stream
 			 */
-			private Stream(String name, IAudioStream audio) {
+			private Stream(String name, AudioStream audio) {
 				this.name = name;
 				this.audio = audio;
 			}
@@ -192,7 +199,7 @@ public class Mixer implements IMixer {
 			/**
 			 * @return The audio stream associated to the name.
 			 */
-			public IAudioStream getAudio() {
+			public AudioStream getAudio() {
 				return audio;
 			}
 		}
@@ -213,7 +220,7 @@ public class Mixer implements IMixer {
 		 * @param name The name of the stream to retrieve.
 		 * @return The stream associated to the given name.
 		 */
-		private IAudioStream getOrCreateStream(String name) {
+		private AudioStream getOrCreateStream(String name) {
 			synchronized (lock) {
 				for (Stream stream : streams)
 					if (stream.getName().equals(name))

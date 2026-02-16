@@ -3,7 +3,6 @@ package fr.pederobien.sound.testing;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
-import fr.pederobien.sound.interfaces.IAudioStream;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.IExecutable;
 import fr.pederobien.utils.event.Logger;
@@ -82,7 +81,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get())
-				api.getSpeakers().getMixer().getOrCreateStream("Player 1").put(api.getMicrophone().fetch());
+				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -104,24 +103,20 @@ public class SoundTests {
 			Thread stopThread = new Thread(() -> {
 				sleep(5000);
 				Logger.debug("Moving sound to right only");
-				IAudioStream stream = api.getSpeakers().getMixer().getOrCreateStream(name);
-				stream.setRightVolume(2);
-				stream.setLeftVolume(0);
+				api.getSpeakers().getMixer().setVolumes(name, 0, 2, 1);
 				sleep(3000);
 				Logger.debug("Moving sound to left only");
-				stream.setLeftVolume(2);
-				stream.setRightVolume(0);
+				api.getSpeakers().getMixer().setVolumes(name, 2, 0, 1);
 				sleep(3000);
 				Logger.debug("Moving sound back to both channels");
-				stream.setLeftVolume(1);
-				stream.setRightVolume(1);
+				api.getSpeakers().getMixer().setVolumes(name, 1, 1, 1);
 				sleep(5000);
 				stop.set(true);
 			});
 			stopThread.start();
 
 			while (!stop.get())
-				api.getSpeakers().getMixer().getOrCreateStream(name).put(api.getMicrophone().fetch());
+				api.getSpeakers().getMixer().write(name, api.getMicrophone().fetch());
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -156,7 +151,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get())
-				api.getSpeakers().getMixer().getOrCreateStream("Player 1").put(api.getMicrophone().fetch());
+				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -191,7 +186,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get())
-				api.getSpeakers().getMixer().getOrCreateStream("Player 1").put(api.getMicrophone().fetch());
+				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();

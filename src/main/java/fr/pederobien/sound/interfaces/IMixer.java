@@ -36,12 +36,23 @@ public interface IMixer {
 	byte[] processMicrophoneData(byte[] data);
 
 	/**
-	 * Creates an audio stream associated to the given name if none is registered.
+	 * Get the audio stream associated to the given name, creates one if no one is registered for the given name, and appends the
+	 * given audio sample to its main buffer.
 	 * 
-	 * @param name The name of the stream to get or create.
-	 * @return The audio stream associated to the given name, or null if an error occurred.
+	 * @param name The name of the stream.
+	 * @param data The bytes array that contains audio sample.
 	 */
-	IAudioStream getOrCreateStream(String name);
+	void write(String name, byte[] data);
+
+	/**
+	 * Set the left, right and global volumes of an audio stream.
+	 * 
+	 * @param name   The name of the stream.
+	 * @param left   The volume on the left side.
+	 * @param right  The volume on the right side.
+	 * @param global The global volume on both sides.
+	 */
+	void setVolumes(String name, float left, float right, float global);
 
 	/**
 	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
