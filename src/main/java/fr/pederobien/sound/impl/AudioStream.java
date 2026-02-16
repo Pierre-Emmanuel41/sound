@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 public class AudioStream {
+	private static final int MIN_SIZE = 26460;
 	private final Mixer mixer;
 	private final Queue<Short> queue;
 	private final Object lock;
@@ -72,7 +73,9 @@ public class AudioStream {
 				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
 		}
 
-		mixer.notifyOneStreamHasBeenFilled();
+		// At least 30ms to play
+		if (queue.size() > MIN_SIZE)
+			mixer.notifyOneStreamHasBeenFilled();
 	}
 
 	/**
