@@ -26,14 +26,19 @@ public interface IMixer {
 	SourceDataLine getSpeakersLine();
 
 	/**
-	 * Post process the given bytes array. The input data corresponds to the raw data retrieved from the microphone. If after
-	 * processing the bytes array, there is no useful data, then an empty bytes array shall be returned.
+	 * Registers a bytes array that contains raw data retrieved from the OS microphone. The raw data will be cleaned and then can be
+	 * retrieved via fetchProcessedMicrophoneData
 	 * 
-	 * @param data The bytes array that contains the microphone output.
-	 * 
-	 * @return the processed bytes array.
+	 * @param raw The bytes array containing the audio sample.
 	 */
-	byte[] processMicrophoneData(byte[] data);
+	void registerRawMicrophoneData(byte[] raw);
+
+	/**
+	 * Blocks until cleaned data is available or until the TargetDataLine for the microphone is closed.
+	 * 
+	 * @return A bytes array containing cleaned microphone data.
+	 */
+	byte[] fetchProcessedMicrophoneData();
 
 	/**
 	 * Get the audio stream associated to the given name, creates one if no one is registered for the given name, and appends the

@@ -19,6 +19,8 @@ public class Microphone implements IMicrophone {
 	private final TargetDataLine microphone;
 	private final AtomicBoolean isOpened;
 
+	private Thread fetcher;
+
 	/**
 	 * Creates a microphone.
 	 * 
@@ -46,6 +48,10 @@ public class Microphone implements IMicrophone {
 		microphone.open();
 		microphone.start();
 
+		fetcher = new Thread(this::process, "Fetcher");
+		fetcher.setDaemon(true);
+		fetcher.start();
+
 		Logger.info("Microphone enabled");
 		EventManager.callEvent(new MicrophoneOpenPostEvent(this));
 	}
@@ -72,20 +78,22 @@ public class Microphone implements IMicrophone {
 
 	@Override
 	public byte[] fetch() {
-		while (true) {
+		return mixer.fetchProcessedMicrophoneData();
+	}
+
+	private void process() {
+		while (isOpened.get()) {
 			byte[] buffer = new byte[microphone.getBufferSize() / 5];
 			int read = microphone.read(buffer, 0, buffer.length);
 
 			// Checking condition to continue
 			if (read == 0)
-				return null;
+				return;
 
 			if (read != buffer.length)
 				buffer = ByteWrapper.wrap(buffer).extract(0, read);
 
-			byte[] processed = mixer.processMicrophoneData(buffer);
-			if (processed.length > 0)
-				return processed;
+			mixer.registerRawMicrophoneData(buffer);
 		}
 	}
 }

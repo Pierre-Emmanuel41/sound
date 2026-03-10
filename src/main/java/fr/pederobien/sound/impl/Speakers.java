@@ -50,6 +50,7 @@ public class Speakers implements ISpeakers {
 		speakers.start();
 
 		player = new Thread(this::play, "Speakers");
+		player.setDaemon(true);
 		player.start();
 
 		Logger.info("Speakers enabled");

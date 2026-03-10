@@ -1,7 +1,5 @@
 package fr.pederobien.sound.impl;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -21,6 +19,7 @@ public class Mixer implements IMixer {
 	private final Lock lock;
 	private final Condition isEmpty;
 	private final IDisposable disposable;
+	private final MicrophoneAudioProcessor microphoneAudioProcessor;
 	private TargetDataLine microphoneLine;
 	private SourceDataLine speakersLine;
 	private boolean waiting;
@@ -30,6 +29,7 @@ public class Mixer implements IMixer {
 		lock = new ReentrantLock(true);
 		isEmpty = lock.newCondition();
 		disposable = new Disposable();
+		microphoneAudioProcessor = new MicrophoneAudioProcessor();
 		waiting = false;
 	}
 
@@ -38,6 +38,8 @@ public class Mixer implements IMixer {
 		disposable.checkDisposed();
 		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(44100f, 16, 1, true, false)));
 		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(44100f, 16, 2, true, false)));
+
+		microphoneAudioProcessor.initialize();
 	}
 
 	@Override
@@ -60,6 +62,8 @@ public class Mixer implements IMixer {
 			speakersLine.stop();
 			speakersLine.close();
 		}
+
+		microphoneAudioProcessor.dispose();
 	}
 
 	@Override
@@ -73,18 +77,26 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public byte[] processMicrophoneData(byte[] data) {
-		// TODO: Post process input data
-		return data;
+	public void registerRawMicrophoneData(byte[] data) {
+		disposable.checkDisposed();
+		microphoneAudioProcessor.register(data);
+	}
+
+	@Override
+	public byte[] fetchProcessedMicrophoneData() {
+		disposable.checkDisposed();
+		return microphoneAudioProcessor.fetch();
 	}
 
 	@Override
 	public void write(String name, byte[] data) {
+		disposable.checkDisposed();
 		streams.getOrCreateStream(name).write(data);
 	}
 
 	@Override
 	public void setVolumes(String name, float left, float right, float global) {
+		disposable.checkDisposed();
 		AudioStream stream = streams.getOrCreateStream(name);
 		stream.setLeftVolume(left);
 		stream.setRightVolume(right);
@@ -109,6 +121,7 @@ public class Mixer implements IMixer {
 
 	@Override
 	public void flush() {
+		disposable.checkDisposed();
 		streams.flush();
 	}
 
@@ -169,116 +182,6 @@ public class Mixer implements IMixer {
 
 		} finally {
 			lock.unlock();
-		}
-	}
-
-	private class StreamMap {
-
-		private class Stream {
-			private String name;
-			private AudioStream audio;
-
-			/**
-			 * Creates a stream element based on the given name and audio stream.
-			 * 
-			 * @param name   The name of the stream
-			 * @param stream
-			 */
-			private Stream(String name, AudioStream audio) {
-				this.name = name;
-				this.audio = audio;
-			}
-
-			/**
-			 * @return The name of the audio stream.
-			 */
-			public String getName() {
-				return name;
-			}
-
-			/**
-			 * @return The audio stream associated to the name.
-			 */
-			public AudioStream getAudio() {
-				return audio;
-			}
-		}
-
-		private final Mixer mixer;
-		private final List<Stream> streams;
-		private final Object lock;
-
-		private StreamMap(Mixer mixer) {
-			this.mixer = mixer;
-			streams = new ArrayList<Stream>();
-			lock = new Object();
-		}
-
-		/**
-		 * Get a stream associated to the given name if registered. If there is no stream associated to the given name, one is created.
-		 * 
-		 * @param name The name of the stream to retrieve.
-		 * @return The stream associated to the given name.
-		 */
-		private AudioStream getOrCreateStream(String name) {
-			synchronized (lock) {
-				for (Stream stream : streams)
-					if (stream.getName().equals(name))
-						return stream.getAudio();
-			}
-
-			// Stream not found
-			Stream stream = new Stream(name, new AudioStream(mixer));
-			streams.add(stream);
-			return stream.getAudio();
-		}
-
-		/**
-		 * Read one sample from each stream registered in this map, sums the result, perform clipping checks.
-		 * 
-		 * @param left  The resulting sample for the left channel.
-		 * @param right The resulting sample for the right channel.
-		 * @return True if there was at least one non-empty stream, false otherwise.
-		 */
-		private boolean read(short[] left, short[] right) {
-			int sumLeft = 0;
-			int sumRight = 0;
-			boolean read = false;
-
-			synchronized (lock) {
-				for (Stream stream : streams) {
-					short[] sampleLeft = new short[1];
-					short[] sampleRight = new short[1];
-
-					// Getting left and right sample for the stream
-					if (stream.getAudio().read(sampleLeft, sampleRight)) {
-						sumLeft += sampleLeft[0];
-						sumRight += sampleRight[0];
-						read = true;
-					}
-				}
-			}
-
-			// All streams are empty
-			if (!read)
-				return false;
-
-			// Clipping
-			left[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sumLeft));
-			right[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sumRight));
-
-			return true;
-		}
-
-		/**
-		 * Clears each audio stream registered in this mixer but leave the streams list unmodified.
-		 */
-		private void flush() {
-			synchronized (lock) {
-				for (Stream stream : streams) {
-					stream.getAudio().flush();
-				}
-			}
 		}
 	}
 }
