@@ -77,8 +77,8 @@ public class Microphone implements IMicrophone {
 	}
 
 	@Override
-	public byte[] fetch() {
-		return mixer.fetchProcessedMicrophoneData();
+	public int fetch(byte[] data) {
+		return mixer.fetchProcessedMicrophoneData(data);
 	}
 
 	private void process() {

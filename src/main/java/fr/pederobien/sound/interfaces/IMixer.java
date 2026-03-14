@@ -34,11 +34,13 @@ public interface IMixer {
 	void registerRawMicrophoneData(byte[] raw);
 
 	/**
-	 * Blocks until cleaned data is available or until the TargetDataLine for the microphone is closed.
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall return
+	 * -1.
 	 * 
-	 * @return A bytes array containing cleaned microphone data.
+	 * @param data The bytes array to update with the microphone audio stream.
+	 * @return The number of bytes written in the array, -1 if an exception occurred while waiting.
 	 */
-	byte[] fetchProcessedMicrophoneData();
+	int fetchProcessedMicrophoneData(byte[] data);
 
 	/**
 	 * Get the audio stream associated to the given name, creates one if no one is registered for the given name, and appends the

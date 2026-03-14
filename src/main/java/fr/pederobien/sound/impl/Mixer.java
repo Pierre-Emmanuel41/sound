@@ -83,9 +83,9 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public byte[] fetchProcessedMicrophoneData() {
+	public int fetchProcessedMicrophoneData(byte[] data) {
 		disposable.checkDisposed();
-		return microphoneAudioProcessor.fetch();
+		return microphoneAudioProcessor.fetch(data);
 	}
 
 	@Override

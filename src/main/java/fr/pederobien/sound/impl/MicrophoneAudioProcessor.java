@@ -31,7 +31,7 @@ public class MicrophoneAudioProcessor {
 
 	public MicrophoneAudioProcessor() {
 		lock = new ReentrantLock(true);
-		microphoneStream = new MicrophoneStream(lock);
+		microphoneStream = new MicrophoneStream();
 		processedQueue = new ArrayDeque<Short>(10000);
 		notEmpty = lock.newCondition();
 
@@ -57,13 +57,34 @@ public class MicrophoneAudioProcessor {
 	}
 
 	/**
-	 * @return A bytes array that contains cleaned audio sample from the microphone.
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall return 1.
+	 * 
+	 * @param data The bytes array to update with the microphone audio stream.
+	 * @return The number of bytes written in the array, 1 if an exception occurred while waiting.
 	 */
-	public byte[] fetch() {
-		if (processedQueue.isEmpty())
-			waitNotEmpty();
+	public int fetch(byte[] data) {
+		// Queue is empty and an exception occurred while waiting
+		if (processedQueue.isEmpty() && !waitNotEmpty())
+			return -1;
 
-		return getBytesFromQueue(processedQueue, OUTPUT_SAMPLE_SIZE);
+		int queueSizeInBytes = processedQueue.size() * 2;
+		int size = queueSizeInBytes < data.length ? queueSizeInBytes : data.length;
+		int max = size / 2;
+		int index = 0;
+
+		// To avoid concurrent modification
+		synchronized (lock) {
+			for (int i = 0; i < max; i++) {
+				Short value = processedQueue.poll();
+
+				// LittleEndian format
+				data[index] = (byte) (value & 0xFF); // LSB
+				data[index + 1] = (byte) ((value >> 8) & 0xFF); // MSB
+				index += 2;
+			}
+		}
+
+		return size;
 	}
 
 	/**
@@ -75,73 +96,41 @@ public class MicrophoneAudioProcessor {
 	}
 
 	/**
-	 * Get n bytes from the queue of shorts. If the queue does not contains length / 2 shorts then the returned bytes array will be
-	 * shorter than the specified length.
-	 * 
-	 * @param queue  The that contains short to extract as bytes.
-	 * @param length The number of bytes to extract from the queue.
-	 * @return An array containing the value from the given queue but as byte.
-	 */
-	private byte[] getBytesFromQueue(Queue<Short> queue, int length) {
-		int queueSizeInBytes = queue.size() * 2;
-		int size = queueSizeInBytes < length ? queueSizeInBytes : length;
-		byte[] bytes = new byte[size];
-		int index = 0;
-
-		int max = size / 2;
-
-		// To avoid concurrent modification
-		synchronized (lock) {
-			for (int i = 0; i < max; i++) {
-				Short value = queue.poll();
-
-				// Little-Endian format
-				bytes[index] = (byte) (value & 0xFF); // LSB
-				bytes[index + 1] = (byte) ((value >> 8) & 0xFF); // MSB
-				index += 2;
-			}
-		}
-
-		return bytes;
-	}
-
-	/**
 	 * Clean the raw stream of the microphone.
 	 */
 	private void clean() {
 		int shortToRead = OUTPUT_SAMPLE_SIZE / 2;
 
 		while (true) {
-
 			// Case 1: Not enough data to perform analysis
 			if (microphoneStream.size() < MIN_MIC_STREAM_SIZE_FOR_ANALYSIS) {
-				List<Short> read = microphoneStream.read(shortToRead);
-
-				synchronized (lock) {
-					processedQueue.addAll(read);
-				}
-
-				notifyNotEmpty();
+				write(microphoneStream.read(shortToRead));
 			}
 
 			// Perform analysis
 			else {
 				// TODO: Implementation of analysis
-				List<Short> read = microphoneStream.read(shortToRead);
-
-				synchronized (lock) {
-					processedQueue.addAll(read);
-				}
-
+				write(microphoneStream.read(shortToRead));
 				microphoneStream.resize();
-
-				notifyNotEmpty();
 			}
 
 			// API has been closed
 			if (disposable.isDisposed())
 				return;
 		}
+	}
+
+	/**
+	 * Add all the short to the processed queue, notify the fetcher thread if it is waiting.
+	 * 
+	 * @param data The data to add to the processed queue.
+	 */
+	private void write(List<Short> data) {
+		synchronized (lock) {
+			processedQueue.addAll(data);
+		}
+
+		notifyNotEmpty();
 	}
 
 	/**
@@ -157,17 +146,22 @@ public class MicrophoneAudioProcessor {
 	}
 
 	/**
-	 * Notify that the queue that contains raw audio sample from the microphone has been filled.
+	 * Notify that the queue that contains processed audio sample from the microphone has been filled.
+	 * 
+	 * @return True if the processed queue has been filled, false if an exception occurred.
 	 */
-	private void waitNotEmpty() {
+	private boolean waitNotEmpty() {
 		try {
 			lock.lock();
 			notEmpty.await();
+			return true;
 		} catch (Exception e) {
 			// Do nothing
 		} finally {
 			lock.unlock();
 		}
+
+		return false;
 	}
 
 	private class MicrophoneStream {
@@ -179,8 +173,8 @@ public class MicrophoneAudioProcessor {
 		/**
 		 * Creates a stream dedicated for the microphone.
 		 */
-		public MicrophoneStream(Lock lock) {
-			this.lock = lock;
+		public MicrophoneStream() {
+			this.lock = new ReentrantLock();
 			notEmpty = lock.newCondition();
 
 			data = new ArrayList<Short>();

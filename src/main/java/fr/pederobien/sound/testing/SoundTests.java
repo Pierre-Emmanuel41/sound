@@ -55,8 +55,16 @@ public class SoundTests {
 			api.initialize();
 			api.getMicrophone().open();
 
-			for (int i = 0; i < 5; i++) {
-				api.getMicrophone().fetch();
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				sleep(5000);
+				stop.set(true);
+			});
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().fetch(sample);
 			}
 
 			api.getMicrophone().close();
@@ -75,13 +83,16 @@ public class SoundTests {
 
 			AtomicBoolean stop = new AtomicBoolean(false);
 			Thread stopThread = new Thread(() -> {
-				sleep(5000);
+				sleep(20000);
 				stop.set(true);
 			});
 			stopThread.start();
 
-			while (!stop.get())
-				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().fetch(sample);
+				api.getSpeakers().getMixer().write("Player 1", sample);
+			}
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -115,8 +126,11 @@ public class SoundTests {
 			});
 			stopThread.start();
 
-			while (!stop.get())
-				api.getSpeakers().getMixer().write(name, api.getMicrophone().fetch());
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().fetch(sample);
+				api.getSpeakers().getMixer().write("Player 1", sample);
+			}
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -150,8 +164,11 @@ public class SoundTests {
 			});
 			stopThread.start();
 
-			while (!stop.get())
-				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().fetch(sample);
+				api.getSpeakers().getMixer().write("Player 1", sample);
+			}
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
@@ -185,8 +202,11 @@ public class SoundTests {
 			});
 			stopThread.start();
 
-			while (!stop.get())
-				api.getSpeakers().getMixer().write("Player 1", api.getMicrophone().fetch());
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().fetch(sample);
+				api.getSpeakers().getMixer().write("Player 1", sample);
+			}
 
 			api.getMicrophone().close();
 			api.getSpeakers().close();
