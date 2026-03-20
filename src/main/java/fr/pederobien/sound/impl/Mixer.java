@@ -19,7 +19,7 @@ public class Mixer implements IMixer {
 	private final Lock lock;
 	private final Condition isEmpty;
 	private final IDisposable disposable;
-	private final MicrophoneAudioProcessor microphoneAudioProcessor;
+	private final MicrophoneDataCleaner microphoneAudioProcessor;
 	private TargetDataLine microphoneLine;
 	private SourceDataLine speakersLine;
 	private boolean waiting;
@@ -29,7 +29,7 @@ public class Mixer implements IMixer {
 		lock = new ReentrantLock(true);
 		isEmpty = lock.newCondition();
 		disposable = new Disposable();
-		microphoneAudioProcessor = new MicrophoneAudioProcessor();
+		microphoneAudioProcessor = new MicrophoneDataCleaner();
 		waiting = false;
 	}
 

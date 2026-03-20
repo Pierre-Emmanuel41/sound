@@ -11,7 +11,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
 
-public class MicrophoneAudioProcessor {
+public class MicrophoneDataCleaner {
 	/**
 	 * 1s of sample to improve audio quality
 	 */
@@ -29,14 +29,14 @@ public class MicrophoneAudioProcessor {
 	private IDisposable disposable;
 	private Thread cleaner;
 
-	public MicrophoneAudioProcessor() {
+	public MicrophoneDataCleaner() {
 		lock = new ReentrantLock(true);
 		microphoneStream = new MicrophoneStream();
 		processedQueue = new ArrayDeque<Short>(10000);
 		notEmpty = lock.newCondition();
 
 		disposable = new Disposable();
-		cleaner = new Thread(this::clean, "MicrophoneCleaner");
+		cleaner = new Thread(this::clean, "MicrophoneDataCleaner");
 	}
 
 	/**

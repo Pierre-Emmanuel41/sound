@@ -48,7 +48,7 @@ public class Microphone implements IMicrophone {
 		microphone.open();
 		microphone.start();
 
-		fetcher = new Thread(this::process, "Fetcher");
+		fetcher = new Thread(this::process, "Microphone");
 		fetcher.setDaemon(true);
 		fetcher.start();
 
