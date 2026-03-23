@@ -72,6 +72,7 @@ public class Speakers implements ISpeakers {
 		speakers.drain();
 		speakers.stop();
 		speakers.close();
+		player.interrupt();
 
 		Logger.info("Speakers disabled");
 		EventManager.callEvent(new SpeakersClosePostEvent(this));

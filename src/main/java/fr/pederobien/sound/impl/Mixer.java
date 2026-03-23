@@ -111,10 +111,8 @@ public class Mixer implements IMixer {
 		int read = readAndMergeStreams(data);
 
 		// All streams were empty
-		if (read == 0) {
-			waitForStreamsToBeFilled();
-			return read(data);
-		}
+		if (read == 0)
+			return waitForStreamsToBeFilled() ? read(data) : -1;
 
 		return read;
 	}
@@ -172,14 +170,17 @@ public class Mixer implements IMixer {
 
 	/**
 	 * Wait for streams to be read.
+	 * 
+	 * @return True if the thread shall read bytes, false if it should return.
 	 */
-	private void waitForStreamsToBeFilled() {
+	private boolean waitForStreamsToBeFilled() {
 		try {
 			lock.lock();
 			waiting = true;
 			isEmpty.await();
+			return true;
 		} catch (InterruptedException e) {
-
+			return false;
 		} finally {
 			lock.unlock();
 		}

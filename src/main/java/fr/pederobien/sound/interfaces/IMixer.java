@@ -66,11 +66,10 @@ public interface IMixer {
 	 * <p>
 	 * There is no registered streams</br>
 	 * All the streams are empty</br>
-	 * The input bytes array is full.
 	 * 
 	 * @param data The buffer to read the bytes into.
 	 * 
-	 * @return The number of bytes read into buffer.
+	 * @return The number of bytes read into buffer, or -1 if the thread was waiting and has been interrupted.
 	 */
 	int read(byte[] data);
 
