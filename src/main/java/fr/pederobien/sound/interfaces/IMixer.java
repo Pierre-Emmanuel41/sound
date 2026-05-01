@@ -62,6 +62,11 @@ public interface IMixer {
 	void setVolumes(String name, float left, float right, float global);
 
 	/**
+	 * Set to 1.0 the left, right and global volumes of each registered stream.
+	 */
+	void resetVolumes();
+
+	/**
 	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
 	 * <p>
 	 * There is no registered streams</br>

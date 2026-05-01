@@ -97,10 +97,12 @@ public class Mixer implements IMixer {
 	@Override
 	public void setVolumes(String name, float left, float right, float global) {
 		disposable.checkDisposed();
-		AudioStream stream = streams.getOrCreateStream(name);
-		stream.setLeftVolume(left);
-		stream.setRightVolume(right);
-		stream.setGlobalVolume(global);
+		streams.setVolumes(name, left, right, global);
+	}
+
+	@Override
+	public void resetVolumes() {
+		streams.resetVolumes();
 	}
 
 	@Override

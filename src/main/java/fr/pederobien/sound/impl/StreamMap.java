@@ -81,6 +81,34 @@ public class StreamMap {
 		}
 	}
 
+	/**
+	 * Set the left, right and global volumes of an audio stream.
+	 * 
+	 * @param name   The name of the stream.
+	 * @param left   The volume on the left side.
+	 * @param right  The volume on the right side.
+	 * @param global The global volume on both sides.
+	 */
+	public void setVolumes(String name, float left, float right, float global) {
+		setVolumes(getOrCreateStream(name), left, right, global);
+	}
+
+	/**
+	 * Set to 1.0 the left, right and global volumes of each registered stream.
+	 */
+	public void resetVolumes() {
+		synchronized (lock) {
+			for (Stream stream : streams)
+				setVolumes(stream.getAudio(), 1.0f, 1.0f, 1.0f);
+		}
+	}
+
+	private void setVolumes(AudioStream stream, float left, float right, float global) {
+		stream.setLeftVolume(left);
+		stream.setRightVolume(right);
+		stream.setGlobalVolume(global);
+	}
+
 	private class Stream {
 		private String name;
 		private AudioStream audio;
