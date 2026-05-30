@@ -6,7 +6,8 @@ import fr.pederobien.utils.event.Logger;
 public class SoundTestApp {
 
 	public static void main(String[] args) {
-		Logger.instance().colorized(true).debug(true);
+		Logger.setPrintInColor(true);
+		Logger.setPrintEvent(true);
 
 		runTest("Sound API test", () -> soundApiTest());
 	}
