@@ -73,7 +73,7 @@ public class AudioStream {
 				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
 		}
 
-		// At least 30ms to play
+		// At least 3 frames to play
 		if (queue.size() > MIN_SIZE)
 			mixer.notifyOneStreamHasBeenFilled();
 	}

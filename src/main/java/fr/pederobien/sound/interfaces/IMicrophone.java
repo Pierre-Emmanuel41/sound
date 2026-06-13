@@ -3,7 +3,8 @@ package fr.pederobien.sound.interfaces;
 public interface IMicrophone {
 
 	/**
-	 * Opens the access to the microphone. If an error occurred while accessing the microphone, an exception shall be thrown.
+	 * Opens the access to the microphone. If an error occurred while accessing the microphone, an exception shall be thrown. The
+	 * method initialize its filter if defined.
 	 */
 	void open() throws Exception;
 
@@ -19,5 +20,20 @@ public interface IMicrophone {
 	 * @param data The bytes array to update with the microphone audio stream.
 	 * @return The number of bytes written in the array, -1 if an exception occurred while waiting.
 	 */
-	int fetch(byte[] data) throws Exception;
+	int read(byte[] data) throws Exception;
+
+	/**
+	 * @return The filter to use to improve microphone's audio quality.
+	 */
+	IFilter getFilter();
+
+	/**
+	 * Set the filter to use to improve microphone's audio quality. If setting the filter while the microphone is opened, the filter
+	 * shall already be initialized. If the microphone is not yet opened, the filter shall not be initialized as the open method call
+	 * the initialize method of the filter. The given filter is enabled, and the previous filter is disabled and disposed. Set to null
+	 * will set the filter to new NoFilter().
+	 * 
+	 * @param filter The filter to apply.
+	 */
+	void setFilter(IFilter filter);
 }

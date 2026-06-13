@@ -8,29 +8,31 @@ import fr.pederobien.sound.event.MicrophoneClosePostEvent;
 import fr.pederobien.sound.event.MicrophoneClosePreEvent;
 import fr.pederobien.sound.event.MicrophoneOpenPostEvent;
 import fr.pederobien.sound.event.MicrophoneOpenPreEvent;
+import fr.pederobien.sound.impl.filters.NoFilter;
 import fr.pederobien.sound.interfaces.IMicrophone;
+import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
 
 public class Microphone implements IMicrophone {
-	private final IMixer mixer;
 	private final TargetDataLine microphone;
 	private final AtomicBoolean isOpened;
 
+	private IFilter filter;
 	private Thread fetcher;
 
 	/**
 	 * Creates a microphone.
 	 * 
-	 * @param mixer The mixer used to create the underlying TargetDataLine and post process the microphone output.
+	 * @param mixer The mixer used to create the underlying TargetDataLine.
 	 */
 	protected Microphone(IMixer mixer) {
-		this.mixer = mixer;
 		this.microphone = mixer.getMicrophoneLine();
 
 		isOpened = new AtomicBoolean(false);
+		filter = new NoFilter();
 	}
 
 	@Override
@@ -77,8 +79,26 @@ public class Microphone implements IMicrophone {
 	}
 
 	@Override
-	public int fetch(byte[] data) {
-		return mixer.fetchProcessedMicrophoneData(data);
+	public int read(byte[] data) {
+		return filter.read(data);
+	}
+
+	@Override
+	public IFilter getFilter() {
+		return filter;
+	}
+
+	@Override
+	public void setFilter(IFilter filter) {
+		if (this.filter == filter)
+			return;
+
+		filter.setEnabled(true);
+
+		IFilter previous = this.filter;
+		this.filter = filter == null ? new NoFilter() : filter;
+
+		previous.setEnabled(false);
 	}
 
 	private void process() {
@@ -93,7 +113,7 @@ public class Microphone implements IMicrophone {
 			if (read != buffer.length)
 				buffer = ByteWrapper.wrap(buffer).extract(0, read);
 
-			mixer.registerRawMicrophoneData(buffer);
+			filter.write(buffer);
 		}
 	}
 }

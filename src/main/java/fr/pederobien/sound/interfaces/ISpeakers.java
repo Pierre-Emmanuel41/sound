@@ -11,9 +11,4 @@ public interface ISpeakers {
 	 * Closes the access to the speakers. If an error occurred while closing the access to the speakers, an exception shall be thrown.
 	 */
 	void close() throws Exception;
-
-	/**
-	 * @return The mixer used to manager audio streams.
-	 */
-	IMixer getMixer();
 }

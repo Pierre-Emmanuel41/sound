@@ -1,5 +1,6 @@
 package fr.pederobien.sound.impl;
 
+import java.util.Arrays;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -15,31 +16,47 @@ import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
 
 public class Mixer implements IMixer {
+	/**
+	 * The sample rate to use for the microphone and speakers.
+	 */
+	static final float SAMPLE_RATE = 44100f;
+
 	private final StreamMap streams;
 	private final Lock lock;
 	private final Condition isEmpty;
 	private final IDisposable disposable;
-	private final MicrophoneDataCleaner microphoneAudioProcessor;
 	private TargetDataLine microphoneLine;
 	private SourceDataLine speakersLine;
 	private boolean waiting;
+	private boolean initialized;
+	private int emptyFrameCounter;
 
 	public Mixer() {
 		streams = new StreamMap(this);
 		lock = new ReentrantLock(true);
 		isEmpty = lock.newCondition();
 		disposable = new Disposable();
-		microphoneAudioProcessor = new MicrophoneDataCleaner();
 		waiting = false;
+		initialized = false;
+		emptyFrameCounter = 0;
 	}
 
 	@Override
 	public void initialize() throws Exception {
 		disposable.checkDisposed();
-		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(44100f, 16, 1, true, false)));
-		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(44100f, 16, 2, true, false)));
 
-		microphoneAudioProcessor.initialize();
+		if (initialized)
+			return;
+
+		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(SAMPLE_RATE, 16, 1, true, false)));
+		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(SAMPLE_RATE, 16, 2, true, false)));
+
+		initialized = true;
+	}
+
+	@Override
+	public boolean isInitialized() {
+		return initialized;
 	}
 
 	@Override
@@ -62,8 +79,6 @@ public class Mixer implements IMixer {
 			speakersLine.stop();
 			speakersLine.close();
 		}
-
-		microphoneAudioProcessor.dispose();
 	}
 
 	@Override
@@ -74,18 +89,6 @@ public class Mixer implements IMixer {
 	@Override
 	public SourceDataLine getSpeakersLine() {
 		return speakersLine;
-	}
-
-	@Override
-	public void registerRawMicrophoneData(byte[] data) {
-		disposable.checkDisposed();
-		microphoneAudioProcessor.register(data);
-	}
-
-	@Override
-	public int fetchProcessedMicrophoneData(byte[] data) {
-		disposable.checkDisposed();
-		return microphoneAudioProcessor.fetch(data);
 	}
 
 	@Override
@@ -112,10 +115,24 @@ public class Mixer implements IMixer {
 
 		int read = readAndMergeStreams(data);
 
-		// All streams were empty
-		if (read == 0)
-			return waitForStreamsToBeFilled() ? read(data) : -1;
+		// data array not filled entirely
+		if (0 < read && read < data.length) {
+			Arrays.fill(data, read, data.length, (byte) 0);
+			return data.length;
+		}
 
+		// All streams were empty
+		if (read == 0) {
+			// County number of silence frame has been sent to the speakers
+			if (emptyFrameCounter <= 10) {
+				emptyFrameCounter++;
+				Arrays.fill(data, 0, data.length, (byte) 0);
+				return data.length;
+			} else
+				return waitForStreamsToBeFilled() ? read(data) : -1;
+		}
+
+		emptyFrameCounter = 0;
 		return read;
 	}
 

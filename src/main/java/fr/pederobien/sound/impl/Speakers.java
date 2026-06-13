@@ -26,7 +26,7 @@ public class Speakers implements ISpeakers {
 	 * 
 	 * @param mixer The mixer used to create the underlying SourceDataLine and player processed samples.
 	 */
-	protected Speakers(IMixer mixer) throws Exception {
+	protected Speakers(IMixer mixer) {
 		this.mixer = mixer;
 		this.speakers = mixer.getSpeakersLine();
 
@@ -76,11 +76,6 @@ public class Speakers implements ISpeakers {
 
 		Logger.info("Speakers disabled");
 		EventManager.callEvent(new SpeakersClosePostEvent(this));
-	}
-
-	@Override
-	public IMixer getMixer() {
-		return mixer;
 	}
 
 	private void play() {

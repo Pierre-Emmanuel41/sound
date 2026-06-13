@@ -11,6 +11,11 @@ public interface IMixer {
 	void initialize() throws Exception;
 
 	/**
+	 * @return True if this mixer has been initialized successfully.
+	 */
+	boolean isInitialized();
+
+	/**
 	 * Free resources used by the microphone and speakers. This method is called after closing the microphone and the speakers.
 	 */
 	void dispose();
@@ -24,23 +29,6 @@ public interface IMixer {
 	 * @return The line to use for the speakers.
 	 */
 	SourceDataLine getSpeakersLine();
-
-	/**
-	 * Registers a bytes array that contains raw data retrieved from the OS microphone. The raw data will be cleaned and then can be
-	 * retrieved via fetchProcessedMicrophoneData
-	 * 
-	 * @param raw The bytes array containing the audio sample.
-	 */
-	void registerRawMicrophoneData(byte[] raw);
-
-	/**
-	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall return
-	 * -1.
-	 * 
-	 * @param data The bytes array to update with the microphone audio stream.
-	 * @return The number of bytes written in the array, -1 if an exception occurred while waiting.
-	 */
-	int fetchProcessedMicrophoneData(byte[] data);
 
 	/**
 	 * Get the audio stream associated to the given name, creates one if no one is registered for the given name, and appends the

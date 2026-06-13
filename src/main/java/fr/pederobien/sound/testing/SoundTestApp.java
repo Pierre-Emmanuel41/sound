@@ -15,14 +15,20 @@ public class SoundTestApp {
 	private static void soundApiTest() {
 		SoundTests tests = new SoundTests();
 
-		tests.soundApiInitializeDisposeTest();
-		tests.speakersSimpleOpenCloseTest();
-		tests.microphoneSimpleOpenCloseTest();
-		tests.microphoneOpenFetchCloseTest();
-		tests.playBackTest();
-		tests.playBackRightThenLeftThenBothTest();
-		tests.microphoneOpenCloseTest();
-		tests.speakersOpenCloseTest();
+//		tests.soundApiInitializeDisposeTest();
+//		tests.speakersSimpleOpenCloseTest();
+//		tests.microphoneSimpleOpenCloseTest();
+//		tests.microphoneOpenFetchCloseTest();
+// 		tests.playBackTest();
+//		tests.playbackLowPassFilterTest(3400);
+//		tests.openCloseLowPassFilterTest(3400);
+//		tests.playbackHighPassFilterTest(500);
+//		tests.openCloseHighPassFilterTest(500);
+//		tests.playbackBandPassFilterTest(20, 3400);
+		tests.openCloseBandPassFilterTest(50, 3400);
+//		tests.playBackRightThenLeftThenBothTest();
+//		tests.microphoneOpenCloseTest();
+//		tests.speakersOpenCloseTest();
 	}
 
 	private static void runTest(String testName, IExecutable test) {
