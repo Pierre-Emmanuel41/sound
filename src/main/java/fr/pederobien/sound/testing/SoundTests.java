@@ -76,6 +76,7 @@ public class SoundTests {
 	public void playBackTest() {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
+
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -433,8 +434,10 @@ public class SoundTests {
 		runTest("speakersOpenCloseTest", test);
 	}
 
-	private ISoundApi createSoundApi() {
-		return new SoundApi();
+	private ISoundApi createSoundApi() throws Exception {
+		ISoundApi soundApi = new SoundApi();
+		soundApi.initialize();
+		return soundApi;
 	}
 
 	private void runTest(String testName, IExecutable test) {

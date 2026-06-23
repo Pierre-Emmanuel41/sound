@@ -1,5 +1,7 @@
 package fr.pederobien.sound.impl.filters;
 
+import java.util.concurrent.Semaphore;
+
 import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
@@ -11,15 +13,10 @@ public class SimpleBandPassFilter implements IFilter {
 	 */
 	private static final double SHORT_MAX_VALUE = (double) Short.MAX_VALUE;
 
-	/**
-	 * Maximum number of bytes to filter in one iteration.
-	 */
-	private static final int BUFFER_SIZE = 8820;
-
-	private final short[] rawBufferWrite;
-	private final short[] rawBufferRead;
-	private final short[] filterBufferWrite;
-	private final short[] filterBufferRead;
+	private short[] rawBufferWrite;
+	private short[] rawBufferRead;
+	private short[] filterBufferWrite;
+	private short[] filterBufferRead;
 	private double alphaHighPass;
 	private double alphaLowPass;
 	private double previousLowPassOutput;
@@ -27,9 +24,11 @@ public class SimpleBandPassFilter implements IFilter {
 	private double previousHighPassInput;
 	private MicrophoneStream rawStream;
 	private MicrophoneStream filteredStream;
+	private boolean isInitialized;
 	private boolean isEnabled;
 	private IDisposable disposable;
 	private Thread cleaner;
+	private Semaphore semaphore;
 
 	/**
 	 * Creates a band pass filter, composed of one first order low/high pass filter.
@@ -39,10 +38,6 @@ public class SimpleBandPassFilter implements IFilter {
 	 * @param sampleRate              The audio sample rate.
 	 */
 	public SimpleBandPassFilter(double cutoffHighPassFrequency, double cutoffLowPassFrequency, double sampleRate) {
-		rawBufferWrite = new short[BUFFER_SIZE];
-		rawBufferRead = new short[BUFFER_SIZE];
-		filterBufferWrite = new short[BUFFER_SIZE];
-		filterBufferRead = new short[BUFFER_SIZE];
 
 		// Initialize filter state variables
 		previousHighPassOutput = 0.0;
@@ -58,15 +53,27 @@ public class SimpleBandPassFilter implements IFilter {
 		filteredStream = new MicrophoneStream();
 		disposable = new Disposable();
 
-		cleaner = new Thread(this::clean, "MicrophoneCleaner");
+		cleaner = new Thread(this::clean, "SimpleBandPassFilter");
 		cleaner.setDaemon(true);
 		cleaner.start();
 
+		isInitialized = false;
 		isEnabled = false;
+
+		semaphore = new Semaphore(0);
 	}
 
 	@Override
 	public void write(byte[] buffer) {
+		if (!isInitialized) {
+			rawBufferWrite = new short[buffer.length];
+			rawBufferRead = new short[buffer.length];
+			filterBufferWrite = new short[buffer.length];
+			filterBufferRead = new short[buffer.length];
+
+			isInitialized = true;
+			semaphore.release(2);
+		}
 		int index = 0;
 
 		// Converting bytes array to short array
@@ -78,6 +85,15 @@ public class SimpleBandPassFilter implements IFilter {
 
 	@Override
 	public int read(byte[] data) {
+		if (!isInitialized) {
+			// Waiting for initialization to complete
+			try {
+				semaphore.acquire();
+			} catch (Exception e) {
+				return -1;
+			}
+		}
+
 		int written = filteredStream.read(filterBufferRead, Math.min(data.length / 2, filterBufferRead.length));
 		int index = 0;
 
@@ -124,6 +140,15 @@ public class SimpleBandPassFilter implements IFilter {
 	}
 
 	private void clean() {
+		if (!isInitialized) {
+			// Waiting for initialization to complete
+			try {
+				semaphore.acquire();
+			} catch (Exception e) {
+				return;
+			}
+		}
+
 		while (!Thread.currentThread().isInterrupted()) {
 
 			// Reading short values from rawStream

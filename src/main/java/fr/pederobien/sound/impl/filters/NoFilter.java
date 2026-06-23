@@ -2,6 +2,7 @@ package fr.pederobien.sound.impl.filters;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -10,6 +11,7 @@ import fr.pederobien.utils.event.Logger;
 
 public class NoFilter implements IFilter {
 	private final Lock lock;
+	private final Condition notEmpty;
 	private final List<Byte> stream;
 	private boolean isEnabled;
 
@@ -18,30 +20,48 @@ public class NoFilter implements IFilter {
 	 */
 	public NoFilter() {
 		lock = new ReentrantLock(true);
+		notEmpty = lock.newCondition();
 		stream = new ArrayList<Byte>();
 		isEnabled = false;
 	}
 
 	@Override
 	public void write(byte[] buffer) {
-		synchronized (lock) {
+		lock.lock();
+		try {
 			for (byte b : buffer)
 				stream.add(b);
+
+			notEmpty.signal();
+		} finally {
+			lock.unlock();
 		}
 	}
 
 	@Override
 	public int read(byte[] data) {
-		int size;
-
-		synchronized (lock) {
-			size = Math.min(data.length, stream.size());
-
-			for (int i = 0; i < size; i++)
-				data[i] = stream.remove(0);
+		if (stream.isEmpty()) {
+			lock.lock();
+			try {
+				notEmpty.await();
+			} catch (Exception e) {
+				return -1;
+			} finally {
+				lock.unlock();
+			}
 		}
 
-		return size;
+		lock.lock();
+
+		try {
+			int size = Math.min(data.length, stream.size());
+			for (int i = 0; i < size; i++)
+				data[i] = stream.remove(0);
+
+			return size;
+		} finally {
+			lock.unlock();
+		}
 	}
 
 	@Override

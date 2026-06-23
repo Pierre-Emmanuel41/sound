@@ -4,8 +4,12 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 public class AudioStream {
-	private static final int MIN_SIZE = 26460;
+	/**
+	 * The audio stream shall contains at least 150ms of audio to notify the buffer it can be read.
+	 */
+	private static final int MIN_SIZE_IN_MS = 150;
 	private final Mixer mixer;
+	private final int minSizeForNotification;
 	private final Queue<Short> queue;
 	private final Object lock;
 	private float leftVolume;
@@ -15,6 +19,7 @@ public class AudioStream {
 
 	public AudioStream(Mixer mixer) {
 		this.mixer = mixer;
+		minSizeForNotification = (int) (mixer.getSampleRate() * MIN_SIZE_IN_MS / 1000);
 		queue = new ArrayDeque<Short>(4095);
 		lock = new Object();
 		leftVolume = 1;
@@ -73,8 +78,8 @@ public class AudioStream {
 				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
 		}
 
-		// At least 3 frames to play
-		if (queue.size() > MIN_SIZE)
+		// At least n ms of audio, n = MIN_SIZE_IN_MS
+		if (minSizeForNotification < queue.size())
 			mixer.notifyOneStreamHasBeenFilled();
 	}
 

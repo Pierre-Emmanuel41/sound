@@ -1,12 +1,9 @@
 package fr.pederobien.sound.impl;
 
-import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
-import fr.pederobien.sound.event.SoundApiInitializedEvent;
 import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.sound.interfaces.ISpeakers;
-import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
 
 public class SoundApi implements ISoundApi {
@@ -22,18 +19,6 @@ public class SoundApi implements ISoundApi {
 	 */
 	public SoundApi(IMixer mixer) {
 		this.mixer = mixer;
-
-		try {
-			mixer.initialize();
-			microphone = new Microphone(mixer);
-			speakers = new Speakers(mixer);
-
-			Logger.info("Sound API initialized successfully");
-			EventManager.callEvent(new SoundApiInitializedEvent(this));
-		} catch (Exception e) {
-			Logger.error("An issue occurred while initializing sound API: %s", e.getMessage());
-			EventManager.callEvent(new SoundApiInitializationErrorEvent(e));
-		}
 	}
 
 	/**
@@ -41,6 +26,13 @@ public class SoundApi implements ISoundApi {
 	 */
 	public SoundApi() {
 		this(new Mixer());
+	}
+
+	@Override
+	public void initialize() throws Exception {
+		mixer.initialize();
+		microphone = new Microphone(mixer);
+		speakers = new Speakers(mixer);
 	}
 
 	@Override

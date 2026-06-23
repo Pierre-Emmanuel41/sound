@@ -16,11 +16,7 @@ import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
 
 public class Mixer implements IMixer {
-	/**
-	 * The sample rate to use for the microphone and speakers.
-	 */
-	static final float SAMPLE_RATE = 44100f;
-
+	private final float sampleRate;
 	private final StreamMap streams;
 	private final Lock lock;
 	private final Condition isEmpty;
@@ -29,16 +25,30 @@ public class Mixer implements IMixer {
 	private SourceDataLine speakersLine;
 	private boolean waiting;
 	private boolean initialized;
-	private int emptyFrameCounter;
+	private long silenceStartTime;
 
-	public Mixer() {
+	/**
+	 * Creates a mixer used to play several audio stream at the same time.
+	 * 
+	 * @param sampleRate The sample rate to use for the microphone and speakers.
+	 */
+	public Mixer(float sampleRate) {
+		this.sampleRate = sampleRate;
+
 		streams = new StreamMap(this);
 		lock = new ReentrantLock(true);
 		isEmpty = lock.newCondition();
 		disposable = new Disposable();
 		waiting = false;
 		initialized = false;
-		emptyFrameCounter = 0;
+		silenceStartTime = 0;
+	}
+
+	/**
+	 * Creates a mixer with default sample rate 44100Hz.
+	 */
+	public Mixer() {
+		this(44100);
 	}
 
 	@Override
@@ -48,8 +58,8 @@ public class Mixer implements IMixer {
 		if (initialized)
 			return;
 
-		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(SAMPLE_RATE, 16, 1, true, false)));
-		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(SAMPLE_RATE, 16, 2, true, false)));
+		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(sampleRate, 16, 1, true, false)));
+		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(sampleRate, 16, 2, true, false)));
 
 		initialized = true;
 	}
@@ -79,6 +89,11 @@ public class Mixer implements IMixer {
 			speakersLine.stop();
 			speakersLine.close();
 		}
+	}
+
+	@Override
+	public float getSampleRate() {
+		return sampleRate;
 	}
 
 	@Override
@@ -115,24 +130,28 @@ public class Mixer implements IMixer {
 
 		int read = readAndMergeStreams(data);
 
-		// data array not filled entirely
-		if (0 < read && read < data.length) {
-			Arrays.fill(data, read, data.length, (byte) 0);
-			return data.length;
-		}
-
 		// All streams were empty
 		if (read == 0) {
-			// County number of silence frame has been sent to the speakers
-			if (emptyFrameCounter <= 10) {
-				emptyFrameCounter++;
-				Arrays.fill(data, 0, data.length, (byte) 0);
-				return data.length;
-			} else
+			if (silenceStartTime == 0)
+				silenceStartTime = System.currentTimeMillis();
+
+			long now = System.currentTimeMillis();
+
+			// For the last 800ms all the streams are empty
+			if (now - silenceStartTime > 800)
 				return waitForStreamsToBeFilled() ? read(data) : -1;
+
+			// For the last 200ms all the streams are empty
+			long difference = now - silenceStartTime;
+			if (difference > 200) {
+				Arrays.fill(data, 0, data.length, (byte) 0);
+				return sleep(50) ? data.length : -1;
+			}
+
+			return sleep(10) ? read(data) : -1;
 		}
 
-		emptyFrameCounter = 0;
+		silenceStartTime = 0;
 		return read;
 	}
 
@@ -202,6 +221,21 @@ public class Mixer implements IMixer {
 			return false;
 		} finally {
 			lock.unlock();
+		}
+	}
+
+	/**
+	 * Sleeps n milliseconds.
+	 * 
+	 * @param millis The number of milliseconds to sleep.
+	 * @return True if no interrupt exception has been raised, false otherwise.
+	 */
+	private boolean sleep(int millis) {
+		try {
+			Thread.sleep(millis);
+			return true;
+		} catch (InterruptedException e) {
+			return false;
 		}
 	}
 }

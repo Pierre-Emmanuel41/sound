@@ -21,6 +21,11 @@ public interface IMixer {
 	void dispose();
 
 	/**
+	 * @return The sampleRate to use for the microphone and speakers.
+	 */
+	float getSampleRate();
+
+	/**
 	 * @return The line to use by the microphone.
 	 */
 	TargetDataLine getMicrophoneLine();

@@ -53,7 +53,7 @@ public class SimpleHighPassFilter implements IFilter {
 		filteredStream = new MicrophoneStream();
 		disposable = new Disposable();
 
-		cleaner = new Thread(this::clean, "MicrophoneCleaner");
+		cleaner = new Thread(this::clean, "SimpleHighPassFilter");
 		cleaner.setDaemon(true);
 		cleaner.start();
 
