@@ -138,7 +138,7 @@ public class Mixer implements IMixer {
 			long now = System.currentTimeMillis();
 
 			// For the last 800ms all the streams are empty
-			if (now - silenceStartTime > 800)
+			if (now - silenceStartTime > 1000)
 				return waitForStreamsToBeFilled() ? read(data) : -1;
 
 			// For the last 200ms all the streams are empty
