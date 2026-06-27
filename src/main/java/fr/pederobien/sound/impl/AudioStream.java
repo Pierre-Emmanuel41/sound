@@ -9,9 +9,9 @@ public class AudioStream {
 	 */
 	private static final int MIN_SIZE_IN_MS = 150;
 	private final Mixer mixer;
-	private final int minSizeForNotification;
 	private final Queue<Short> queue;
 	private final Object lock;
+	private final int minSizeForNotification;
 	private float leftVolume;
 	private float rightVolume;
 	private float globalVolume;
@@ -19,9 +19,14 @@ public class AudioStream {
 
 	public AudioStream(Mixer mixer) {
 		this.mixer = mixer;
-		minSizeForNotification = (int) (mixer.getSampleRate() * MIN_SIZE_IN_MS / 1000);
 		queue = new ArrayDeque<Short>(4095);
 		lock = new Object();
+
+		// Computing min size of the queue to notify the mixer
+		float sampleRate = mixer.getSampleRate();
+		int bitDepth = mixer.getMicrophoneLine().getFormat().getSampleSizeInBits();
+		int channels = mixer.getMicrophoneLine().getFormat().getChannels();
+		minSizeForNotification = (int) ((sampleRate * (bitDepth / 16) * channels * (MIN_SIZE_IN_MS / 1000.0)));
 		leftVolume = 1;
 		rightVolume = 1;
 		globalVolume = 1;
