@@ -1,7 +1,5 @@
 package fr.pederobien.sound.impl.filters;
 
-import java.util.concurrent.Semaphore;
-
 import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
@@ -13,6 +11,7 @@ public class SimpleBandPassFilter implements IFilter {
 	 */
 	private static final double SHORT_MAX_VALUE = (double) Short.MAX_VALUE;
 
+	private final Object lock;
 	private short[] rawBufferWrite;
 	private short[] rawBufferRead;
 	private short[] filterBufferWrite;
@@ -28,7 +27,6 @@ public class SimpleBandPassFilter implements IFilter {
 	private boolean isEnabled;
 	private IDisposable disposable;
 	private Thread cleaner;
-	private Semaphore semaphore;
 
 	/**
 	 * Creates a band pass filter, composed of one first order low/high pass filter.
@@ -38,6 +36,7 @@ public class SimpleBandPassFilter implements IFilter {
 	 * @param sampleRate              The audio sample rate.
 	 */
 	public SimpleBandPassFilter(double cutoffHighPassFrequency, double cutoffLowPassFrequency, double sampleRate) {
+		lock = new Object();
 
 		// Initialize filter state variables
 		previousHighPassOutput = 0.0;
@@ -59,8 +58,6 @@ public class SimpleBandPassFilter implements IFilter {
 
 		isInitialized = false;
 		isEnabled = false;
-
-		semaphore = new Semaphore(0);
 	}
 
 	@Override
@@ -72,8 +69,11 @@ public class SimpleBandPassFilter implements IFilter {
 			filterBufferRead = new short[buffer.length];
 
 			isInitialized = true;
-			semaphore.release(2);
+			synchronized (lock) {
+				lock.notifyAll();
+			}
 		}
+
 		int index = 0;
 
 		// Converting bytes array to short array
@@ -87,10 +87,12 @@ public class SimpleBandPassFilter implements IFilter {
 	public int read(byte[] data) {
 		if (!isInitialized) {
 			// Waiting for initialization to complete
-			try {
-				semaphore.acquire();
-			} catch (Exception e) {
-				return -1;
+			synchronized (lock) {
+				try {
+					lock.wait();
+				} catch (InterruptedException e) {
+					return -1;
+				}
 			}
 		}
 
@@ -142,10 +144,12 @@ public class SimpleBandPassFilter implements IFilter {
 	private void clean() {
 		if (!isInitialized) {
 			// Waiting for initialization to complete
-			try {
-				semaphore.acquire();
-			} catch (Exception e) {
-				return;
+			synchronized (lock) {
+				try {
+					lock.wait();
+				} catch (InterruptedException e) {
+					return;
+				}
 			}
 		}
 
