@@ -3,6 +3,7 @@ package fr.pederobien.sound.testing;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
+import fr.pederobien.sound.impl.filters.BiquadBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleHighPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleLowPassFilter;
@@ -111,13 +112,13 @@ public class SoundTests {
 			AtomicBoolean stop = new AtomicBoolean(false);
 			Thread stopThread = new Thread(() -> {
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
 				stop.set(true);
 			});
@@ -185,13 +186,13 @@ public class SoundTests {
 			AtomicBoolean stop = new AtomicBoolean(false);
 			Thread stopThread = new Thread(() -> {
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
 				stop.set(true);
 			});
@@ -252,20 +253,21 @@ public class SoundTests {
 	public void playbackBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone()
+					.setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
 			AtomicBoolean stop = new AtomicBoolean(false);
 			Thread stopThread = new Thread(() -> {
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(false);
+				api.getMicrophone().setFilterEnabled(false);
 				sleep(5000);
-				api.getMicrophone().getFilter().setEnabled(true);
+				api.getMicrophone().setFilterEnabled(true);
 				sleep(5000);
 				stop.set(true);
 			});
@@ -288,7 +290,82 @@ public class SoundTests {
 	public void openCloseBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone()
+					.setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				try {
+					sleep(3000);
+					Logger.debug("Disabling microphone");
+					api.getMicrophone().close();
+					sleep(1000);
+					Logger.debug("Enabling microphone");
+					api.getMicrophone().open();
+					sleep(5000);
+					stop.set(true);
+				} catch (Exception e) {
+					// Do nothing
+				}
+			});
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("openCloseHighPassFilterTest", test);
+	}
+
+	public void playbackBiquadBandPassFilterTest(double frequency, double qualityFactor) {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, 44100.0, qualityFactor));
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				sleep(5000);
+				api.getMicrophone().setFilterEnabled(false);
+				sleep(5000);
+				api.getMicrophone().setFilterEnabled(true);
+				sleep(5000);
+				api.getMicrophone().setFilterEnabled(false);
+				sleep(5000);
+				api.getMicrophone().setFilterEnabled(true);
+				sleep(5000);
+				stop.set(true);
+			});
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("playbackBiquadBandPassFilterTest", test);
+	}
+
+	public void openCloseBiquadBandPassFilterTest(double frequency, double qualityFactor) {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, 44100.0, qualityFactor));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 

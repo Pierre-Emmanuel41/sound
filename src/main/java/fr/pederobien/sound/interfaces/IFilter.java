@@ -1,32 +1,23 @@
 package fr.pederobien.sound.interfaces;
 
 public interface IFilter {
+	/**
+	 * Value used to normalize the raw stream values.
+	 */
+	static final double SHORT_MAX_VALUE = (double) Short.MAX_VALUE + 1;
 
 	/**
-	 * Write a bytes array that contains a raw audio sample retrieved from the OS microphone.
+	 * @return The name of the filter, used only for logging.
+	 */
+	default String getName() {
+		return getClass().getSimpleName();
+	}
+
+	/**
+	 * Apply a filter on the given array of short. The input buffer will directly be
+	 * modified with the filtered values.
 	 * 
-	 * @param buffer The bytes array containing the audio sample.
+	 * @param buffer The buffer that contains the raw microphone audio stream.
 	 */
-	void write(byte[] buffer);
-
-	/**
-	 * Update the given bytes array with clean audio samples.
-	 * 
-	 * @param data The buffer to update.
-	 * @return The number of bytes written in the given buffer, -1 if writing failed.
-	 */
-	int read(byte[] data);
-
-	/**
-	 * Set if this filter is enabled. By default a filter should be disabled, the microphone enables it when opened and disable it
-	 * when closed.
-	 * 
-	 * @param isEnabled True to filter the microphone stream, false to leave it as it is.
-	 */
-	void setEnabled(boolean isEnabled);
-
-	/**
-	 * Free resources, this filter cannot be used anymore.
-	 */
-	void dispose();
+	void apply(short[] buffer);
 }

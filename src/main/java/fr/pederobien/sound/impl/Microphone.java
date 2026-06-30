@@ -8,9 +8,9 @@ import fr.pederobien.sound.event.MicrophoneClosePostEvent;
 import fr.pederobien.sound.event.MicrophoneClosePreEvent;
 import fr.pederobien.sound.event.MicrophoneOpenPostEvent;
 import fr.pederobien.sound.event.MicrophoneOpenPreEvent;
-import fr.pederobien.sound.impl.filters.NoFilter;
-import fr.pederobien.sound.interfaces.IMicrophone;
+import fr.pederobien.sound.impl.filters.GenericFilter;
 import fr.pederobien.sound.interfaces.IFilter;
+import fr.pederobien.sound.interfaces.IMicrophone;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
@@ -20,7 +20,7 @@ public class Microphone implements IMicrophone {
 	private final TargetDataLine microphone;
 	private final AtomicBoolean isOpened;
 
-	private IFilter filter;
+	private GenericFilter filter;
 	private Thread fetcher;
 
 	/**
@@ -32,7 +32,7 @@ public class Microphone implements IMicrophone {
 		this.microphone = mixer.getMicrophoneLine();
 
 		isOpened = new AtomicBoolean(false);
-		filter = new NoFilter();
+		filter = new GenericFilter(microphone.getFormat());
 	}
 
 	@Override
@@ -47,6 +47,7 @@ public class Microphone implements IMicrophone {
 		if (preEvent.isCancelled())
 			return;
 
+		filter.setEnabled(true);
 		microphone.open();
 		microphone.start();
 
@@ -84,21 +85,13 @@ public class Microphone implements IMicrophone {
 	}
 
 	@Override
-	public IFilter getFilter() {
-		return filter;
+	public void setFilter(IFilter impl) {
+		filter.setImpl(impl);
 	}
 
 	@Override
-	public void setFilter(IFilter filter) {
-		if (this.filter == filter)
-			return;
-
-		filter.setEnabled(true);
-
-		IFilter previous = this.filter;
-		this.filter = filter == null ? new NoFilter() : filter;
-
-		previous.setEnabled(false);
+	public void setFilterEnabled(boolean isEnabled) {
+		filter.setEnabled(isEnabled);
 	}
 
 	private void process() {
