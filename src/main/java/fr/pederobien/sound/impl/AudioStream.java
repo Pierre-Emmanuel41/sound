@@ -3,6 +3,9 @@ package fr.pederobien.sound.impl;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
+import fr.pederobien.sound.impl.effects.NoEffect;
+import fr.pederobien.sound.interfaces.IEffect;
+
 public class AudioStream {
 	/**
 	 * The audio stream shall contains at least 150ms of audio to notify the buffer it can be read.
@@ -16,6 +19,8 @@ public class AudioStream {
 	private float rightVolume;
 	private float globalVolume;
 	private float offset;
+	private IEffect current;
+	private IEffect next;
 
 	public AudioStream(Mixer mixer) {
 		this.mixer = mixer;
@@ -31,6 +36,10 @@ public class AudioStream {
 		rightVolume = 1;
 		globalVolume = 1;
 		offset = 0;
+
+		current = new NoEffect();
+		current.start();
+		next = null;
 	}
 
 	/**
@@ -66,7 +75,31 @@ public class AudioStream {
 	 * @param offset The value to apply on the global volume.
 	 */
 	public void setOffset(float offset) {
+		if (this.offset == offset)
+			return;
+
+		offset = Math.min(1, Math.max(0, offset));
 		this.offset = offset;
+	}
+
+	/**
+	 * Set the effect to apply on this audio stream.
+	 * 
+	 * @param next The effect to apply once the current effect finished its transition to no modification.
+	 */
+	public void setEffect(IEffect next) {
+		if (this.current == next)
+			return;
+
+		this.next = next;
+		current.stop();
+	}
+
+	/**
+	 * @return The current effect set for this audio stream.
+	 */
+	public IEffect getEffect() {
+		return current;
 	}
 
 	/**
@@ -78,10 +111,24 @@ public class AudioStream {
 		if (data == null)
 			return;
 
-		synchronized (lock) {
-			for (int i = 0; i < data.length; i += 2)
-				queue.add((short) ((data[i + 1] & 0xFF) << 8 | (data[i] & 0xFF)));
+		short[] shorts = new short[data.length / 2];
+		int index = 0;
+		for (int i = 0; i < shorts.length; i++) {
+			index = i * 2;
+			shorts[i] = (short) ((data[index + 1] & 0xFF) << 8 | (data[index] & 0xFF));
 		}
+
+		// Checking if a new effect shall be applied
+		if (current.isStopped() && next != null) {
+			current = next;
+			current.start();
+			next = null;
+		}
+
+		// Applying effect
+		short[] modified = current.apply(shorts);
+		for (int i = 0; i < modified.length; i++)
+			queue.add(modified[i]);
 
 		// At least n ms of audio, n = MIN_SIZE_IN_MS
 		if (minSizeForNotification < queue.size())

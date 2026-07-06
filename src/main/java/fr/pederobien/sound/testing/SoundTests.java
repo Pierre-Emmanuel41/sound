@@ -3,10 +3,12 @@ package fr.pederobien.sound.testing;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
+import fr.pederobien.sound.impl.effects.EchoEffect;
 import fr.pederobien.sound.impl.filters.BiquadBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleHighPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleLowPassFilter;
+import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.IExecutable;
 import fr.pederobien.utils.event.Logger;
@@ -253,8 +255,7 @@ public class SoundTests {
 	public void playbackBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone()
-					.setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -290,8 +291,7 @@ public class SoundTests {
 	public void openCloseBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone()
-					.setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -398,6 +398,59 @@ public class SoundTests {
 		};
 
 		runTest("openCloseHighPassFilterTest", test);
+	}
+
+	public void echoEffectTest() {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				try {
+					sleep(5000);
+					IEffect effect = new EchoEffect(api.getMixer().getSampleRate(), 800, 0.4f, 0.8f);
+					api.getMixer().setEffect("Player 1", effect);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 700, 0.4f, 0.8f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 600, 0.4f, 0.8f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 500, 0.4f, 0.8f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 400, 0.4f, 0.8f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.8f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.5f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.1f);
+					sleep(5000);
+					api.getMixer().setEffectValues("Player 1", 200, 0.1f, 0.1f);
+					sleep(5000);
+					api.getMixer().removeEffect("Player 1");
+					sleep(5000);
+					stop.set(true);
+				} catch (Exception e) {
+					// Do nothing
+				}
+			});
+
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("echoEffectTest", test);
 	}
 
 	public void playBackRightThenLeftThenBothTest() {

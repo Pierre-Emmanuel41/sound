@@ -7,13 +7,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 
+import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
+import fr.pederobien.utils.event.Logger;
 
 public class Mixer implements IMixer {
 	private final float sampleRate;
@@ -58,8 +59,8 @@ public class Mixer implements IMixer {
 		if (initialized)
 			return;
 
-		microphoneLine = (TargetDataLine) AudioSystem.getLine(new DataLine.Info(TargetDataLine.class, new AudioFormat(sampleRate, 16, 1, true, false)));
-		speakersLine = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, new AudioFormat(sampleRate, 16, 2, true, false)));
+		microphoneLine = AudioSystem.getTargetDataLine(new AudioFormat(sampleRate, 16, 1, true, false));
+		speakersLine = AudioSystem.getSourceDataLine(new AudioFormat(sampleRate, 16, 2, true, false));
 
 		initialized = true;
 	}
@@ -113,13 +114,41 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
+	public void setOffset(String name, float offset) {
+		disposable.checkDisposed();
+		streams.getOrCreateStream(name).setOffset(offset);
+	}
+
+	@Override
 	public void setVolumes(String name, float left, float right, float global) {
 		disposable.checkDisposed();
 		streams.setVolumes(name, left, right, global);
 	}
 
 	@Override
+	public void setEffect(String name, IEffect effect) {
+		disposable.checkDisposed();
+		info("Setting effect \"%s\" for audio stream \"%s\"", effect.getName(), name);
+		streams.getOrCreateStream(name).setEffect(effect);
+	}
+
+	@Override
+	public void setEffectValues(String name, Object... params) {
+		disposable.checkDisposed();
+		info("Updating %s's audio stream effect: %s", name, params);
+		streams.getOrCreateStream(name).getEffect().setValues(params);
+	}
+
+	@Override
+	public void removeEffect(String name) {
+		disposable.checkDisposed();
+		info("Removing effect on audio stream \"%s\"", name);
+		streams.getOrCreateStream(name).getEffect().stop();
+	}
+
+	@Override
 	public void resetVolumes() {
+		info("Reseting left, right and global volumes of each registered streams");
 		streams.resetVolumes();
 	}
 
@@ -215,7 +244,9 @@ public class Mixer implements IMixer {
 		try {
 			lock.lock();
 			waiting = true;
+			debug("Waiting for streams to be filled");
 			isEmpty.await();
+			debug("At least one stream has been filled");
 			return true;
 		} catch (InterruptedException e) {
 			return false;
@@ -237,5 +268,13 @@ public class Mixer implements IMixer {
 		} catch (InterruptedException e) {
 			return false;
 		}
+	}
+
+	private void debug(String format, Object... args) {
+		Logger.debug(1, "[Mixer] - %s", String.format(format, args));
+	}
+
+	private void info(String format, Object... args) {
+		Logger.info("[Mixer] - %s", String.format(format, args));
 	}
 }
