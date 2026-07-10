@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.impl.effects.EchoEffect;
+import fr.pederobien.sound.impl.effects.UnderWaterEffect;
 import fr.pederobien.sound.impl.filters.BiquadBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleHighPassFilter;
@@ -451,6 +452,51 @@ public class SoundTests {
 		};
 
 		runTest("echoEffectTest", test);
+	}
+
+	public void underWaterEffectTest() {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				try {
+					sleep(5000);
+					float sampleRate = api.getMixer().getSampleRate();
+					float cutOffFrequency = 400.0f;
+					float gain = 1.2f;
+					float chorusFrequency = 0.6f;
+					float chorusDepth = 10.0f;
+					float chorusDelay = 20;
+					float reverbDelay = 35;
+					float reverbDecay = 0.5f;
+					IEffect effect = new UnderWaterEffect(sampleRate, cutOffFrequency, gain, chorusFrequency, chorusDepth, chorusDelay, reverbDelay, reverbDecay);
+					api.getMixer().setEffect("Player 1", effect);
+					sleep(10000);
+					api.getMixer().removeEffect("Player 1");
+					sleep(5000);
+					stop.set(true);
+				} catch (Exception e) {
+					// Do nothing
+				}
+			});
+
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[8820];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("underWaterEffectTest", test);
 	}
 
 	public void playBackRightThenLeftThenBothTest() {
