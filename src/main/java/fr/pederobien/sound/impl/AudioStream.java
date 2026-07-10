@@ -19,6 +19,7 @@ public class AudioStream {
 	private float rightVolume;
 	private float globalVolume;
 	private float offset;
+	private int bufferSize;
 	private IEffect current;
 	private IEffect next;
 
@@ -36,6 +37,7 @@ public class AudioStream {
 		rightVolume = 1;
 		globalVolume = 1;
 		offset = 0;
+		bufferSize = 0;
 
 		current = new NoEffect();
 		current.start();
@@ -111,7 +113,8 @@ public class AudioStream {
 		if (data == null)
 			return;
 
-		short[] shorts = new short[data.length / 2];
+		bufferSize = data.length / 2;
+		short[] shorts = new short[bufferSize];
 		int index = 0;
 		for (int i = 0; i < shorts.length; i++) {
 			index = i * 2;
@@ -126,9 +129,9 @@ public class AudioStream {
 		}
 
 		// Applying effect
-		short[] modified = current.apply(shorts);
-		for (int i = 0; i < modified.length; i++)
-			queue.add(modified[i]);
+		current.apply(shorts);
+		for (int i = 0; i < shorts.length; i++)
+			queue.add(shorts[i]);
 
 		// At least n ms of audio, n = MIN_SIZE_IN_MS
 		if (minSizeForNotification < queue.size())
@@ -143,11 +146,18 @@ public class AudioStream {
 	 * @return True if data could be read, false otherwise.
 	 */
 	public boolean read(short[] left, short[] right) {
-		if (queue.isEmpty())
-			return false;
-
 		short value;
 		synchronized (lock) {
+			if (queue.isEmpty()) {
+				short[] tail = new short[bufferSize];
+				int[] length = new int[1];
+				if (current != null && current.processTail(tail, length)) {
+					for (int i = 0; i < length[0]; i++)
+						queue.add(tail[i]);
+				} else
+					return false;
+			}
+
 			value = queue.poll();
 		}
 

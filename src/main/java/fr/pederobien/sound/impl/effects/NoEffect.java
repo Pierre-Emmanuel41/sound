@@ -37,13 +37,18 @@ public class NoEffect implements IEffect {
 	}
 
 	@Override
-	public short[] apply(short[] buffer) {
-		return buffer;
+	public void apply(short[] buffer) {
+		// Do nothing
 	}
 
 	@Override
 	public void setValues(Object... values) {
-		// Do nothing.
+		// Do nothing
+	}
+
+	@Override
+	public boolean processTail(short[] buffer, int[] length) {
+		return false;
 	}
 
 	private void debug(String format, Object... args) {

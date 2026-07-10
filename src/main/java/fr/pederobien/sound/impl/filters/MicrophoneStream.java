@@ -117,26 +117,23 @@ public class MicrophoneStream {
 			}
 
 			int size = Math.min(length, count);
-			int written = 0;
 
 			// Handle wrap-around case
 			if (tail + size <= capacity) {
 				// Contiguous block: simple arraycopy
 				System.arraycopy(stream, tail, buffer, 0, size);
-				written = size;
 			} else {
 				// Wrap-around: copy in two parts
 				int firstPart = capacity - tail;
 				System.arraycopy(stream, tail, buffer, 0, firstPart);
 				System.arraycopy(stream, 0, buffer, firstPart, size - firstPart);
-				written = size;
 			}
 
 			// Update read position and count
-			tail = (tail + written) % capacity;
-			count -= written;
+			tail = (tail + size) % capacity;
+			count -= size;
 
-			return written;
+			return size;
 		} finally {
 			lock.unlock();
 		}

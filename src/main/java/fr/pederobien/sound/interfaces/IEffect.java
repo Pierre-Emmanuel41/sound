@@ -1,18 +1,6 @@
 package fr.pederobien.sound.interfaces;
 
-public interface IEffect {
-
-	/**
-	 * Value used to normalize the raw stream values.
-	 */
-	static final double SHORT_MAX_VALUE = (double) Short.MAX_VALUE + 1;
-
-	/**
-	 * @return The name of the effect.
-	 */
-	default String getName() {
-		return getClass().getSimpleName();
-	}
+public interface IEffect extends IFilter {
 
 	/**
 	 * Apply effect on an audio stream. The method shall transition smoothly from no modification to normal modification associated to
@@ -32,18 +20,18 @@ public interface IEffect {
 	boolean isStopped();
 
 	/**
-	 * Apply an effect on the given input buffer that represents an audio stream. The method returns a new array of short containing
-	 * the modified audio stream. If the effect is stopped, the method shall return the input buffer.
-	 * 
-	 * @param buffer The buffer that contains frames of an audio stream.
-	 * @return The modified audio stream.
-	 */
-	short[] apply(short[] buffer);
-
-	/**
 	 * Update the parameters values of this effect. The parameters defines how this effect modifies input audio stream.
 	 * 
 	 * @param values An list of values of parameter.
 	 */
 	void setValues(Object... values);
+
+	/**
+	 * This method is called when there is no new samples for an audio stream, but the effect is not finished.
+	 * 
+	 * @param buffer An buffer that contains only 0 and to be filled with effect tail.
+	 * @param length An array of one integer that contains the number of bytes written in the input buffer.
+	 * @return True if the effect still has remaining audio to output, false if fully dried up.
+	 */
+	boolean processTail(short[] buffer, int[] length);
 }
