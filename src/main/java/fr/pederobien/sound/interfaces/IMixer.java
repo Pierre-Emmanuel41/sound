@@ -94,6 +94,14 @@ public interface IMixer {
 	void removeEffect(String name);
 
 	/**
+	 * Check if there is an audio stream registered for the given audio stream name.
+	 * 
+	 * @param name The name of the audio stream.
+	 * @return True if an audio stream is registered for the given name, false otherwise.
+	 */
+	boolean exist(String name);
+
+	/**
 	 * Read bytes from this Mixer. This method blocks when at least one of the two conditions is verified :
 	 * <p>
 	 * There is no registered streams</br>

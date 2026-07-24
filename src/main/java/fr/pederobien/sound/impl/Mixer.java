@@ -147,6 +147,11 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
+	public boolean exist(String name) {
+		return streams.exist(name);
+	}
+
+	@Override
 	public void resetVolumes() {
 		info("Reseting left, right and global volumes of each registered streams");
 		streams.resetVolumes();

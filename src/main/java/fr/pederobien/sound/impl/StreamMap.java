@@ -34,6 +34,22 @@ public class StreamMap {
 	}
 
 	/**
+	 * Check if there is an audio stream registered for the given audio stream name.
+	 * 
+	 * @param name The name of the audio stream.
+	 * @return True if an audio stream is registered for the given name, false otherwise.
+	 */
+	public boolean exist(String name) {
+		synchronized (lock) {
+			for (Stream stream : streams)
+				if (stream.getName().equals(name))
+					return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Read one sample from each stream registered in this map, sums the result, performs clipping checks.
 	 * 
 	 * @param left  The resulting sample for the left channel.
