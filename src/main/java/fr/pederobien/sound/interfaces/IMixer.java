@@ -46,7 +46,7 @@ public interface IMixer {
 
 	/**
 	 * Set the volume offset to apply on an audio stream. The average volume of an audio stream my be too low compared to others. This
-	 * method applies an offset on the global volume. The method checks if the offset value is in range [0, 1].
+	 * method applies an offset on the global volume. The method checks if the offset value is in range [0, 5].
 	 * 
 	 * @param name   The name of the audio stream to modify.
 	 * @param offset The volume offset to apply.

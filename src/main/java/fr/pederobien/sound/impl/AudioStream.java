@@ -80,7 +80,7 @@ public class AudioStream {
 		if (this.offset == offset)
 			return;
 
-		offset = Math.min(1, Math.max(0, offset));
+		offset = Math.min(5, Math.max(0, offset));
 		this.offset = offset;
 	}
 
