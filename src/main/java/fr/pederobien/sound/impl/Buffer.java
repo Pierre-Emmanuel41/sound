@@ -1,5 +1,6 @@
 package fr.pederobien.sound.impl;
 
+import java.util.Arrays;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -162,6 +163,17 @@ public class Buffer {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	public void reset() {
+		lock.lock();
+
+		head = 0;
+		tail = 0;
+		count = 0;
+		Arrays.fill(stream, (byte) 0);
+
+		lock.unlock();
 	}
 
 	/**

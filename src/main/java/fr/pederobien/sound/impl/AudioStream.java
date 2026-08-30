@@ -216,61 +216,67 @@ public class AudioStream {
 	private void process() {
 		while (!Thread.currentThread().isInterrupted()) {
 
-			// Reading raw audio stream
-			short[] raw = new short[bufferSize];
-			int read = input.read(raw, raw.length);
+			try {
+				// Reading raw audio stream
+				short[] raw = new short[bufferSize];
+				int read = input.read(raw, raw.length);
 
-			// Input buffer is disposed
-			if (read == -1)
-				break;
+				// Input buffer is disposed
+				if (read == -1)
+					break;
 
-			// No new input check for effect tails
-			if (read == 0) {
-				boolean shallSleep = true;
+				// No new input check for effect tails
+				if (read == 0) {
+					boolean shallSleep = true;
 
-				if (((System.currentTimeMillis() - lastInputTime) > frameDuration * 3) && !effects.isEmpty()) {
-					short[] tail = new short[bufferSize];
-					int[] length = new int[1];
+					if (((System.currentTimeMillis() - lastInputTime) > frameDuration * 3) && !effects.isEmpty()) {
+						short[] tail = new short[bufferSize];
+						int[] length = new int[1];
 
-					synchronized (lock) {
-						for (IEffect effect : effects)
-							if (effect.processTail(tail, length)) {
-								output.write(tail, length[0]);
-								shallSleep = false;
-							}
-					}
-				}
-
-				if (shallSleep)
-					try {
-						Thread.sleep(frameDuration);
-					} catch (InterruptedException e) {
-						break;
+						synchronized (lock) {
+							for (IEffect effect : effects)
+								if (effect.processTail(tail, length)) {
+									output.write(tail, length[0]);
+									shallSleep = false;
+								}
+						}
 					}
 
-				continue;
-			}
-
-			lastInputTime = System.currentTimeMillis();
-
-			// Check if there are effects to apply
-			if (!effects.isEmpty()) {
-				synchronized (lock) {
-					Iterator<IEffect> iterator = effects.iterator();
-					while (iterator.hasNext()) {
-						IEffect effect = iterator.next();
-						if (effect.isStopped()) {
-							iterator.remove();
-							continue;
+					if (shallSleep)
+						try {
+							Thread.sleep(frameDuration);
+						} catch (InterruptedException e) {
+							break;
 						}
 
-						effect.apply(raw, read);
+					continue;
+				}
+
+				lastInputTime = System.currentTimeMillis();
+
+				// Check if there are effects to apply
+				if (!effects.isEmpty()) {
+					synchronized (lock) {
+						Iterator<IEffect> iterator = effects.iterator();
+						while (iterator.hasNext()) {
+							IEffect effect = iterator.next();
+							if (effect.isStopped()) {
+								iterator.remove();
+								continue;
+							}
+
+							effect.apply(raw, read);
+						}
 					}
 				}
-			}
 
-			// Adding to the output buffer
-			output.write(raw, read);
+				// Adding to the output buffer
+				output.write(raw, read);
+
+			} catch (Exception e) {
+				input.reset();
+				output.reset();
+			}
 		}
 	}
 }
