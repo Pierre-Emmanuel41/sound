@@ -1,6 +1,7 @@
 package fr.pederobien.sound.interfaces;
 
 public interface IFilter {
+
 	/**
 	 * Value used to normalize the raw stream values.
 	 */

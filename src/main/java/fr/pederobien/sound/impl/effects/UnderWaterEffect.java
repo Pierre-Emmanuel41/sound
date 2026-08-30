@@ -1,9 +1,12 @@
 package fr.pederobien.sound.impl.effects;
 
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.utils.event.Logger;
 
 public class UnderWaterEffect implements IEffect {
+
+	public static final String NAME = "UNDER_WATER";
 	/**
 	 * Pre-computed 2*Pi value.
 	 */
@@ -106,11 +109,16 @@ public class UnderWaterEffect implements IEffect {
 	}
 
 	@Override
-	public void apply(short[] buffer) {
+	public String getName() {
+		return NAME;
+	}
+
+	@Override
+	public void apply(short[] buffer, int length) {
 		float modulation;
 		int readIndex;
 
-		for (int i = 0; i < buffer.length; i++) {
+		for (int i = 0; i < length; i++) {
 			currentMix = interpolate(currentMix, targetMix, fadeStep);
 
 			float normalized = (float) (buffer[i] / SHORT_MAX_VALUE);
@@ -188,9 +196,8 @@ public class UnderWaterEffect implements IEffect {
 	}
 
 	@Override
-	public void setValues(Object... values) {
+	public void update(IEffectParametersHolder holder) {
 		// TODO Auto-generated method stub
-
 	}
 
 	@Override

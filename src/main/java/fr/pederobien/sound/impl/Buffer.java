@@ -1,4 +1,4 @@
-package fr.pederobien.sound.impl.filters;
+package fr.pederobien.sound.impl;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -7,31 +7,50 @@ import java.util.concurrent.locks.ReentrantLock;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
 
-public class MicrophoneStream {
+public class Buffer {
+	private final boolean waitIfEmpty;
 	private final Lock lock;
 	private final Condition notEmpty;
 	private final IDisposable disposable;
-
-	private final short[] stream;
 	private final int capacity;
+	private final short[] stream;
 	private int head;
 	private int tail;
 	private int count;
 
 	/**
 	 * Creates a stream dedicated for the microphone.
+	 * 
+	 * @param waitIfEmpty True if the thread that read data shall wait if the buffer is empty, false if it shall continue.
 	 */
-	public MicrophoneStream() {
-		this.lock = new ReentrantLock();
+	public Buffer(boolean waitIfEmpty) {
+		this.waitIfEmpty = waitIfEmpty;
+
+		lock = new ReentrantLock();
 		notEmpty = lock.newCondition();
 		disposable = new Disposable();
-
 		capacity = 40000;
 		stream = new short[capacity];
 
 		head = 0;
 		tail = 0;
 		count = 0;
+	}
+
+	/**
+	 * Converts the given bytes array as shorts array and adds it to the underlying shorts array.
+	 * 
+	 * @param buffer The bytes array that contains data to write.
+	 */
+	public void write(byte[] buffer) {
+		short[] shorts = new short[buffer.length / 2];
+		int index = 0;
+		for (int i = 0; i < shorts.length; i++) {
+			index = i * 2;
+			shorts[i] = (short) ((buffer[index + 1] & 0xFF) << 8 | (buffer[index] & 0xFF));
+		}
+
+		write(shorts, shorts.length);
 	}
 
 	/**
@@ -104,6 +123,12 @@ public class MicrophoneStream {
 		try {
 			// Waiting for data to be written
 			if (count == 0) {
+
+				// Check if the reading thread shall leave immediately
+				if (!waitIfEmpty)
+					return 0;
+
+				// Let's wait for input data
 				try {
 					notEmpty.await();
 
@@ -137,6 +162,13 @@ public class MicrophoneStream {
 		} finally {
 			lock.unlock();
 		}
+	}
+
+	/**
+	 * @return The number of elements in this buffer.
+	 */
+	public int size() {
+		return count;
 	}
 
 	/**

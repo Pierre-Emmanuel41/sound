@@ -1,9 +1,6 @@
 package fr.pederobien.sound.impl;
 
 import java.util.Arrays;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -11,6 +8,7 @@ import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.sound.interfaces.IMixer;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
@@ -19,14 +17,15 @@ import fr.pederobien.utils.event.Logger;
 public class Mixer implements IMixer {
 	private final float sampleRate;
 	private final StreamMap streams;
-	private final Lock lock;
-	private final Condition isEmpty;
 	private final IDisposable disposable;
 	private TargetDataLine microphoneLine;
 	private SourceDataLine speakersLine;
-	private boolean waiting;
 	private boolean initialized;
 	private long silenceStartTime;
+	private int bufferSize;
+	private short[] left;
+	private short[] right;
+	private int frameDuration;
 
 	/**
 	 * Creates a mixer used to play several audio stream at the same time.
@@ -36,20 +35,19 @@ public class Mixer implements IMixer {
 	public Mixer(float sampleRate) {
 		this.sampleRate = sampleRate;
 
-		streams = new StreamMap(this);
-		lock = new ReentrantLock(true);
-		isEmpty = lock.newCondition();
+		streams = new StreamMap(sampleRate);
 		disposable = new Disposable();
-		waiting = false;
 		initialized = false;
 		silenceStartTime = 0;
+		bufferSize = 0;
+		frameDuration = 0;
 	}
 
 	/**
 	 * Creates a mixer with default sample rate 44100Hz.
 	 */
 	public Mixer() {
-		this(44100);
+		this(48000);
 	}
 
 	@Override
@@ -74,9 +72,6 @@ public class Mixer implements IMixer {
 	public void dispose() {
 		if (!disposable.dispose())
 			return;
-
-		if (waiting)
-			notifyOneStreamHasBeenFilled();
 
 		// Closing microphone line
 		if (microphoneLine != null && microphoneLine.isOpen()) {
@@ -126,24 +121,24 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void setEffect(String name, IEffect effect) {
+	public void addEffect(String name, int index, IEffect effect) {
 		disposable.checkDisposed();
-		info("Setting effect \"%s\" for audio stream \"%s\"", effect.getName(), name);
-		streams.getOrCreateStream(name).setEffect(effect);
+		info("Adding an effect on %s's audio stream: %s", name, effect);
+		streams.getOrCreateStream(name).addEffect(index, effect);
 	}
 
 	@Override
-	public void setEffectValues(String name, Object... params) {
+	public void removeEffect(String name, String effectName) {
 		disposable.checkDisposed();
-		info("Updating %s's audio stream effect: %s", name, params);
-		streams.getOrCreateStream(name).getEffect().setValues(params);
+		info("Removing %s from %s's audio stream", effectName, name);
+		streams.getOrCreateStream(name).removeEffect(effectName);
 	}
 
 	@Override
-	public void removeEffect(String name) {
+	public void updateEffect(String name, IEffectParametersHolder holder) {
 		disposable.checkDisposed();
-		info("Removing effect on audio stream \"%s\"", name);
-		streams.getOrCreateStream(name).getEffect().stop();
+		info("Updating an effect on %s's audio stream %s", name, holder);
+		streams.getOrCreateStream(name).updateEffect(holder);
 	}
 
 	@Override
@@ -171,18 +166,12 @@ public class Mixer implements IMixer {
 
 			long now = System.currentTimeMillis();
 
-			// For the last 800ms all the streams are empty
-			if (now - silenceStartTime > 1000)
-				return waitForStreamsToBeFilled() ? read(data) : -1;
+			if (now - silenceStartTime < 5 * frameDuration)
+				return sleep(frameDuration) ? read(data) : -1;
 
-			// For the last 200ms all the streams are empty
-			long difference = now - silenceStartTime;
-			if (difference > 200) {
-				Arrays.fill(data, 0, data.length, (byte) 0);
-				return sleep(50) ? data.length : -1;
-			}
-
-			return sleep(10) ? read(data) : -1;
+			silenceStartTime = 0;
+			Arrays.fill(data, 0, data.length, (byte) 0);
+			return sleep(frameDuration) ? data.length : -1;
 		}
 
 		silenceStartTime = 0;
@@ -204,60 +193,35 @@ public class Mixer implements IMixer {
 	 * @return The number of bytes written in the input bytes array.
 	 */
 	private int readAndMergeStreams(byte[] data) {
-		for (int i = 0; i < data.length; i += 4) {
-			short[] left = new short[1];
-			short[] right = new short[1];
+		// First call
+		if (bufferSize == 0) {
+			bufferSize = data.length / 4;
+			left = new short[bufferSize];
+			right = new short[bufferSize];
+			frameDuration = (int) (data.length * 1000.0 / getSampleRate());
+		}
 
-			// Each stream is empty
-			if (!streams.read(left, right))
-				return i;
+		// Reinitializing content of left and right channel for next frame
+		Arrays.fill(left, (short) 0);
+		Arrays.fill(right, (short) 0);
+
+		// Reading one frame of the left and right channel
+		int read = streams.read(left, right, bufferSize);
+
+		int offset;
+		for (int i = 0; i < read; i++) {
+			offset = i * 4;
 
 			// Left channel
-			data[i] = (byte) (left[0] & 0xFF); // LSB
-			data[i + 1] = (byte) ((left[0] >> 8) & 0xFF); // MSB
+			data[offset] = (byte) (left[i] & 0xFF); // LSB
+			data[offset + 1] = (byte) ((left[i] >> 8) & 0xFF); // MSB
 
 			// Right channel
-			data[i + 2] = (byte) (right[0] & 0xFF); // LSB
-			data[i + 3] = (byte) ((right[0] >> 8) & 0xFF); // MSB
+			data[offset + 2] = (byte) (right[i] & 0xFF); // LSB
+			data[offset + 3] = (byte) ((right[i] >> 8) & 0xFF); // MSB
 		}
 
-		return data.length;
-	}
-
-	/**
-	 * Signal that there are streams to be read.
-	 */
-	protected void notifyOneStreamHasBeenFilled() {
-		if (!waiting)
-			return;
-
-		try {
-			lock.lock();
-			waiting = false;
-			isEmpty.signal();
-		} finally {
-			lock.unlock();
-		}
-	}
-
-	/**
-	 * Wait for streams to be read.
-	 * 
-	 * @return True if the thread shall read bytes, false if it should return.
-	 */
-	private boolean waitForStreamsToBeFilled() {
-		try {
-			lock.lock();
-			waiting = true;
-			debug("Waiting for streams to be filled");
-			isEmpty.await();
-			debug("At least one stream has been filled");
-			return true;
-		} catch (InterruptedException e) {
-			return false;
-		} finally {
-			lock.unlock();
-		}
+		return read * 4;
 	}
 
 	/**
@@ -273,10 +237,6 @@ public class Mixer implements IMixer {
 		} catch (InterruptedException e) {
 			return false;
 		}
-	}
-
-	private void debug(String format, Object... args) {
-		Logger.debug(1, "[Mixer] - %s", String.format(format, args));
 	}
 
 	private void info(String format, Object... args) {

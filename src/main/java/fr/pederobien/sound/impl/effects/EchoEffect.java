@@ -1,9 +1,82 @@
 package fr.pederobien.sound.impl.effects;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.StringJoiner;
+
+import fr.pederobien.sound.impl.EffectParametersHolder;
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.utils.event.Logger;
 
 public class EchoEffect implements IEffect {
+
+	/**
+	 * The name of this effect.
+	 */
+	public static final String NAME = "ECHO";
+
+	/**
+	 * Name of the delay parameter. The value data type shall be Integer.
+	 */
+	public static final String DELAY = "delay";
+
+	/**
+	 * Name of the feedback parameter. The value data type shall be Float.
+	 */
+	public static final String FEEDBACK = "feedback";
+
+	/**
+	 * Name of the gain parameter. The value data type shall be Float.
+	 */
+	public static final String GAIN = "gain";
+
+	/**
+	 * @return A holder to update with new parameter values.
+	 */
+	public static IEffectParametersHolder holder() {
+		Map<String, Class<?>> description = new HashMap<String, Class<?>>();
+		description.put(DELAY, Integer.class);
+		description.put(FEEDBACK, Float.class);
+		description.put(GAIN, Float.class);
+		return new EffectParametersHolder(NAME, description);
+	}
+
+	/**
+	 * Get a holder with internal parameters updated with the given values.<br>
+	 * 
+	 * Feedback:<br>
+	 * 0.0: No repeats. You hear only the first echo (controlled by Gain), then silence.<br>
+	 * 0.1 -> 0.4: A quick decay (2–3 repeats). Good for small room simulations.<br>
+	 * 0.5 -> 0.7: A standard echo (4–8 repeats). The volume halves roughly every repeat.<br>
+	 * 0.8 -> 0.9: A long, trailing echo (many repeats).<br>
+	 * 1.0: Infinite sustain. The echo repeats forever at the same volume.<br>
+	 * > 1.0: Runaway Feedback. The signal amplifies exponentially on every loop quickly hitting the maximum limit (Short.MAX_VALUE)
+	 * and creating loud digital noise/static.<br>
+	 * <br>
+	 * gain:<br>
+	 * 0.0: No echo is heard (the delay line still works, but the output is muted).<br>
+	 * 0.1 -> 0.5: A subtle, background echo.<br>
+	 * 0.6 -> 0.9: A prominent, distinct echo.<br>
+	 * 1.0: The first echo is as loud as the original sound.<br>
+	 * > 1.0: The first echo is louder than the original (can cause immediate clipping if the original signal is already loud).<br>
+	 * <br>
+	 * 
+	 * @param delay    The time, in ms, before repeating previous sample. It shall be in range [0, 2000].
+	 * @param feedback Controls how much of the delayed signal is sent back into the delay line to create subsequent repetitions. It
+	 *                 determines the number of repeats and the decay rate.
+	 * @param gain     Controls the volume of the first echo repetition relative to the original (dry) sound. It determines how loud
+	 *                 the echo is when it first becomes audible.
+	 * @return A holder that contains the new effect parameter values.
+	 */
+	public static IEffectParametersHolder holder(int delay, float feedback, float gain) {
+		IEffectParametersHolder holder = holder();
+		holder.setValue(DELAY, delay);
+		holder.setValue(FEEDBACK, feedback);
+		holder.setValue(GAIN, gain);
+		return holder;
+	}
+
 	/**
 	 * The maximum delay in ms of the echo.
 	 */
@@ -20,7 +93,6 @@ public class EchoEffect implements IEffect {
 	private float currentGain;
 	private float targetGain;
 	private float fadeStep;
-	private volatile boolean writing;
 
 	/**
 	 * Creates an echo effect. The feedback and gain parameters modifies directly how the echo is done:<br>
@@ -64,15 +136,19 @@ public class EchoEffect implements IEffect {
 		this.targetBufferLength = size;
 
 		this.feedback = feedback;
-		currentGain = 0.0f;
-		targetGain = 0.0f;
-
-		this.gain = gain;
 		currentFeedback = 0.0f;
 		targetFeedback = 0.0f;
 
+		this.gain = gain;
+		currentGain = 0.0f;
+		targetGain = 0.0f;
+
 		fadeStep = 0.0001f;
-		writing = false;
+	}
+
+	@Override
+	public String getName() {
+		return NAME;
 	}
 
 	@Override
@@ -103,13 +179,12 @@ public class EchoEffect implements IEffect {
 	}
 
 	@Override
-	public void apply(short[] buffer) {
+	public void apply(short[] buffer, int length) {
 		if (isStopped())
 			// Do nothing
 			return;
 
-		writing = true;
-		for (int i = 0; i < buffer.length; i++) {
+		for (int i = 0; i < length; i++) {
 			// Step 1: Smoothly interpolating Gain and Feedback towards targets
 			currentGain = interpolate(currentGain, targetGain, fadeStep);
 			currentFeedback = interpolate(currentFeedback, targetFeedback, fadeStep);
@@ -146,24 +221,35 @@ public class EchoEffect implements IEffect {
 			// Step 8: Advance Circular Buffer
 			bufferIndex = (bufferIndex + 1) % delayBuffer.length;
 		}
-
-		writing = false;
 	}
 
 	@Override
-	public void setValues(Object... values) {
-		int delay = (int) values[0];
-		if (delay <= 0)
-			targetBufferLength = 0;
-		else if (MAX_DELAY_MS <= delay)
-			targetBufferLength = delayBuffer.length;
-		else
-			targetBufferLength = (int) (sampleRate * delay / 1000);
+	public void update(IEffectParametersHolder holder) {
+		if (!holder.getEffectName().equals(NAME))
+			return;
 
-		feedback = (float) values[1];
-		targetFeedback = feedback;
-		gain = (float) values[2];
-		targetGain = gain;
+		Object delayObj = holder.getValue(DELAY);
+		if (delayObj != null) {
+			int delay = (int) delayObj;
+			if (delay <= 0)
+				targetBufferLength = 0;
+			else if (MAX_DELAY_MS <= delay)
+				targetBufferLength = delayBuffer.length;
+			else
+				targetBufferLength = (int) (sampleRate * delay / 1000);
+		}
+
+		Object feedbackObj = holder.getValue(FEEDBACK);
+		if (feedbackObj != null) {
+			feedback = (float) feedbackObj;
+			targetFeedback = feedback;
+		}
+
+		Object gainObj = holder.getValue(GAIN);
+		if (gainObj != null) {
+			gain = (float) gainObj;
+			targetGain = gain;
+		}
 	}
 
 	@Override
@@ -203,15 +289,19 @@ public class EchoEffect implements IEffect {
 			short absVal = (short) Math.abs(buffer[i]);
 			if (absVal > max)
 				max = absVal;
-
-			// Step 8: Dropping tail if new input data available
-			if (writing) {
-				length[0] = i;
-				break;
-			}
 		}
 
 		return max > 20;
+	}
+
+	@Override
+	public String toString() {
+		StringJoiner joiner = new StringJoiner(",", "{", "}");
+		joiner.add("name=" + getName());
+		joiner.add("delay=" + (1000 * targetBufferLength / sampleRate));
+		joiner.add("feedback=" + feedback);
+		joiner.add("gain=" + gain);
+		return joiner.toString();
 	}
 
 	/**

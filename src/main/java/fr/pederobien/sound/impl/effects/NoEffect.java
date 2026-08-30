@@ -1,9 +1,25 @@
 package fr.pederobien.sound.impl.effects;
 
+import java.util.HashMap;
+
+import fr.pederobien.sound.impl.EffectParametersHolder;
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.utils.event.Logger;
 
 public class NoEffect implements IEffect {
+	/**
+	 * The name of this effect.
+	 */
+	public static final String NAME = "NO_EFFECT";
+
+	/**
+	 * @return A holder to update with new parameter values.
+	 */
+	public static IEffectParametersHolder holder() {
+		return new EffectParametersHolder(NAME, new HashMap<String, Class<?>>());
+	}
+
 	private boolean isStopped;
 
 	/**
@@ -11,6 +27,11 @@ public class NoEffect implements IEffect {
 	 */
 	public NoEffect() {
 		isStopped = true;
+	}
+
+	@Override
+	public String getName() {
+		return NAME;
 	}
 
 	@Override
@@ -37,12 +58,12 @@ public class NoEffect implements IEffect {
 	}
 
 	@Override
-	public void apply(short[] buffer) {
+	public void update(IEffectParametersHolder holder) {
 		// Do nothing
 	}
 
 	@Override
-	public void setValues(Object... values) {
+	public void apply(short[] buffer, int length) {
 		// Do nothing
 	}
 

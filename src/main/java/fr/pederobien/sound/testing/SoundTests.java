@@ -66,7 +66,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 			}
 
@@ -92,7 +92,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -128,7 +128,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -166,7 +166,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -202,7 +202,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -240,7 +240,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -276,7 +276,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -314,7 +314,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -350,7 +350,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -388,7 +388,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -412,25 +412,25 @@ public class SoundTests {
 				try {
 					sleep(5000);
 					IEffect effect = new EchoEffect(api.getMixer().getSampleRate(), 800, 0.4f, 0.8f);
-					api.getMixer().setEffect("Player 1", effect);
+					api.getMixer().addEffect("Player 1", 0, effect);
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 700, 0.4f, 0.8f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(700, 0.4f, 0.8f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 600, 0.4f, 0.8f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(600, 0.4f, 0.8f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 500, 0.4f, 0.8f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(500, 0.4f, 0.8f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 400, 0.4f, 0.8f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(400, 0.4f, 0.8f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.8f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(200, 0.4f, 0.8f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.5f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(200, 0.4f, 0.5f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 200, 0.4f, 0.1f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(200, 0.4f, 0.1f));
 					sleep(5000);
-					api.getMixer().setEffectValues("Player 1", 200, 0.1f, 0.1f);
+					api.getMixer().updateEffect("Player 1", EchoEffect.holder(200, 0.1f, 0.1f));
 					sleep(5000);
-					api.getMixer().removeEffect("Player 1");
+					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);
 					stop.set(true);
 				} catch (Exception e) {
@@ -441,7 +441,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -473,9 +473,9 @@ public class SoundTests {
 					float reverbDelay = 35;
 					float reverbDecay = 0.5f;
 					IEffect effect = new UnderWaterEffect(sampleRate, cutOffFrequency, gain, chorusFrequency, chorusDepth, chorusDelay, reverbDelay, reverbDecay);
-					api.getMixer().setEffect("Player 1", effect);
+					api.getMixer().addEffect("Player 1", 0, effect);
 					sleep(10000);
-					api.getMixer().removeEffect("Player 1");
+					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);
 					stop.set(true);
 				} catch (Exception e) {
@@ -486,7 +486,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -523,7 +523,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -560,7 +560,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}
@@ -597,7 +597,7 @@ public class SoundTests {
 			stopThread.start();
 
 			while (!stop.get()) {
-				byte[] sample = new byte[8820];
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
 				api.getMicrophone().read(sample);
 				api.getMixer().write("Player 1", sample);
 			}

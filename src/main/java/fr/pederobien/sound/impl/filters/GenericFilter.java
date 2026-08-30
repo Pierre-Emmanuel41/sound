@@ -2,6 +2,7 @@ package fr.pederobien.sound.impl.filters;
 
 import javax.sound.sampled.AudioFormat;
 
+import fr.pederobien.sound.impl.Buffer;
 import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.utils.Disposable;
 import fr.pederobien.utils.IDisposable;
@@ -15,8 +16,8 @@ public class GenericFilter {
 
 	private final int bufferSize;
 	private IFilter impl;
-	private MicrophoneStream rawStream;
-	private MicrophoneStream filteredStream;
+	private Buffer input;
+	private Buffer ouput;
 	private IDisposable disposable;
 	private Thread filterThread;
 	private boolean isEnabled;
@@ -35,8 +36,8 @@ public class GenericFilter {
 
 		// Create streams and start cleaner thread
 		impl = new NoFilter();
-		rawStream = new MicrophoneStream();
-		filteredStream = new MicrophoneStream();
+		input = new Buffer(true);
+		ouput = new Buffer(true);
 		disposable = new Disposable();
 
 		filterThread = new Thread(this::filter, "MicrophoneFilter");
@@ -64,14 +65,7 @@ public class GenericFilter {
 	 * @param buffer The bytes array containing the audio sample.
 	 */
 	public void write(byte[] buffer) {
-		int index = 0;
-		short[] values = new short[buffer.length / 2];
-
-		// Converting bytes array to short array
-		for (int i = 0; i < buffer.length; i += 2)
-			values[index++] = (short) ((buffer[i + 1] & 0xFF) << 8 | (buffer[i] & 0xFF));
-
-		rawStream.write(values, index);
+		input.write(buffer);
 	}
 
 	/**
@@ -82,7 +76,7 @@ public class GenericFilter {
 	 */
 	public int read(byte[] data) {
 		short[] values = new short[data.length / 2];
-		int written = filteredStream.read(values, Math.min(data.length / 2, values.length));
+		int written = ouput.read(values, Math.min(data.length / 2, values.length));
 		int index = 0;
 
 		// Converting short to byte
@@ -108,18 +102,18 @@ public class GenericFilter {
 
 		try {
 			// Force the cleaner thread to exit the loop
-			rawStream.dispose();
+			input.dispose();
 
 			// Waiting for the cleaner thread to finish the last execution
 			filterThread.join(100);
 
 			// Force the thread waiting for processed data to exit the loop
-			filteredStream.dispose();
+			ouput.dispose();
 
 			// Garbage Collector
 			filterThread = null;
-			rawStream = null;
-			filteredStream = null;
+			input = null;
+			ouput = null;
 		} catch (InterruptedException e) {
 			// Do nothing
 		}
@@ -133,7 +127,7 @@ public class GenericFilter {
 			short[] values = new short[bufferSize];
 
 			// Reading short values from rawStream
-			int read = rawStream.read(values, values.length);
+			int read = input.read(values, values.length);
 
 			// Interrupted thread, no need to go further
 			if (read == -1)
@@ -148,7 +142,7 @@ public class GenericFilter {
 			if (isEnabled)
 				impl.apply(values);
 
-			filteredStream.write(values, read);
+			ouput.write(values, read);
 		}
 	}
 

@@ -1,47 +1,64 @@
 package fr.pederobien.sound.impl;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Queue;
 
-import fr.pederobien.sound.impl.effects.NoEffect;
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 
 public class AudioStream {
-	/**
-	 * The audio stream shall contains at least 150ms of audio to notify the buffer it can be read.
-	 */
-	private static final int MIN_SIZE_IN_MS = 150;
-	private final Mixer mixer;
+	private final String name;
+	private final float sampleRate;
+	private final Buffer input;
+	private final Buffer output;
+	private final Thread effectThread;
+	private final List<IEffect> effects;
 	private final Queue<Short> queue;
 	private final Object lock;
-	private final int minSizeForNotification;
 	private float leftVolume;
 	private float rightVolume;
 	private float globalVolume;
 	private float offset;
 	private int bufferSize;
-	private IEffect current;
-	private IEffect next;
+	private int frameDuration;
+	private short[] tmp;
+	private long lastInputTime;
 
-	public AudioStream(Mixer mixer) {
-		this.mixer = mixer;
+	/**
+	 * Creates an audio stream.
+	 * 
+	 * @param name  The stream name.
+	 * @param mixer The sampleRate of the audio stream.
+	 */
+	public AudioStream(String name, float sampleRate) {
+		this.name = name;
+		this.sampleRate = sampleRate;
+
+		input = new Buffer(false);
+		output = new Buffer(false);
+		effectThread = new Thread(this::process, String.format("[%s - EffectThread]", name));
+		effectThread.setDaemon(true);
+		effects = new ArrayList<IEffect>();
 		queue = new ArrayDeque<Short>(4095);
 		lock = new Object();
 
-		// Computing min size of the queue to notify the mixer
-		float sampleRate = mixer.getSampleRate();
-		int bitDepth = mixer.getMicrophoneLine().getFormat().getSampleSizeInBits();
-		int channels = mixer.getMicrophoneLine().getFormat().getChannels();
-		minSizeForNotification = (int) ((sampleRate * (bitDepth / 16) * channels * (MIN_SIZE_IN_MS / 1000.0)));
 		leftVolume = 1;
 		rightVolume = 1;
 		globalVolume = 1;
 		offset = 0;
 		bufferSize = 0;
+		frameDuration = 0;
+		lastInputTime = 0;
+	}
 
-		current = new NoEffect();
-		current.start();
-		next = null;
+	/**
+	 * @return The name of this audio stream.
+	 */
+	public String getName() {
+		return name;
 	}
 
 	/**
@@ -85,23 +102,47 @@ public class AudioStream {
 	}
 
 	/**
-	 * Set the effect to apply on this audio stream.
+	 * Adds an effect at the specified index. If the index is greater than the size of the list of effect then the effect will be
+	 * added to the end.
 	 * 
-	 * @param next The effect to apply once the current effect finished its transition to no modification.
+	 * @param index  The index at which the effect shall be added.
+	 * @param effect The effect to add.
 	 */
-	public void setEffect(IEffect next) {
-		if (this.current == next)
-			return;
+	public void addEffect(int index, IEffect effect) {
+		effect.start();
 
-		this.next = next;
-		current.stop();
+		synchronized (lock) {
+			if (effects.size() <= index)
+				index = effects.size();
+
+			effects.add(index, effect);
+		}
 	}
 
 	/**
-	 * @return The current effect set for this audio stream.
+	 * Stops the effect associated to the given name.
+	 * 
+	 * @param name The name of the effect to stop.
 	 */
-	public IEffect getEffect() {
-		return current;
+	public void removeEffect(String name) {
+		synchronized (lock) {
+			for (IEffect effect : effects)
+				if (effect.getName().equals(name))
+					effect.stop();
+		}
+	}
+
+	/**
+	 * Update the parameters of an effect.
+	 * 
+	 * @param holder An holder that contains the effect name and gather parameter's name / parameter's value.
+	 */
+	public void updateEffect(IEffectParametersHolder holder) {
+		synchronized (lock) {
+			for (IEffect effect : effects)
+				if (effect.getName().equals(holder.getEffectName()))
+					effect.update(holder);
+		}
 	}
 
 	/**
@@ -113,57 +154,43 @@ public class AudioStream {
 		if (data == null)
 			return;
 
-		bufferSize = data.length / 2;
-		short[] shorts = new short[bufferSize];
-		int index = 0;
-		for (int i = 0; i < shorts.length; i++) {
-			index = i * 2;
-			shorts[i] = (short) ((data[index + 1] & 0xFF) << 8 | (data[index] & 0xFF));
+		input.write(data);
+
+		// First call
+		if (bufferSize == 0) {
+			bufferSize = data.length / 2;
+			frameDuration = (int) (bufferSize * 1000.0 / sampleRate);
+			effectThread.start();
 		}
-
-		// Checking if a new effect shall be applied
-		if (current.isStopped() && next != null) {
-			current = next;
-			current.start();
-			next = null;
-		}
-
-		// Applying effect
-		current.apply(shorts);
-		for (int i = 0; i < shorts.length; i++)
-			queue.add(shorts[i]);
-
-		// At least n ms of audio, n = MIN_SIZE_IN_MS
-		if (minSizeForNotification < queue.size())
-			mixer.notifyOneStreamHasBeenFilled();
 	}
 
 	/**
-	 * Read two bytes from the underlying queue, and update the left / right byte array with the correct samples value.
+	 * Read n bytes from the underlying queue, and update the left / right byte array with the correct samples value.
 	 * 
-	 * @param left  The sample for the left channel (left and global volume applied)
-	 * @param right The sample for the right channel (right and global volume applied)
-	 * @return True if data could be read, false otherwise.
+	 * @param left   The samples for the left channel (left and global volume applied)
+	 * @param right  The samples for the right channel (right and global volume applied)
+	 * @param length The number of short to read.
+	 * @return The actual number of shorts read from this stream.
 	 */
-	public boolean read(short[] left, short[] right) {
-		short value;
-		synchronized (lock) {
-			if (queue.isEmpty()) {
-				short[] tail = new short[bufferSize];
-				int[] length = new int[1];
-				if (current != null && current.processTail(tail, length)) {
-					for (int i = 0; i < length[0]; i++)
-						queue.add(tail[i]);
-				} else
-					return false;
-			}
+	public int read(short[] left, short[] right, int length) {
+		// First call
+		if (tmp == null)
+			tmp = new short[length];
 
-			value = queue.poll();
+		int read = output.read(tmp, length);
+
+		// No output for this stream
+		if (read == 0)
+			return 0;
+
+		// Applying volumes and clipping
+		for (int i = 0; i < read; i++) {
+			short value = tmp[i];
+			left[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * leftVolume * (globalVolume + offset)));
+			right[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * rightVolume * (globalVolume + offset)));
 		}
 
-		left[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * leftVolume * (globalVolume + offset)));
-		right[0] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * rightVolume * (globalVolume + offset)));
-		return true;
+		return read;
 	}
 
 	/**
@@ -172,6 +199,78 @@ public class AudioStream {
 	public void flush() {
 		synchronized (lock) {
 			queue.clear();
+		}
+	}
+
+	/**
+	 * Dispose this audio stream, free all resources.
+	 */
+	public void dispose() {
+		input.dispose();
+		output.dispose();
+	}
+
+	/**
+	 * Functions that apply registered effects until the audio stream is disposed.
+	 */
+	private void process() {
+		while (!Thread.currentThread().isInterrupted()) {
+
+			// Reading raw audio stream
+			short[] raw = new short[bufferSize];
+			int read = input.read(raw, raw.length);
+
+			// Input buffer is disposed
+			if (read == -1)
+				break;
+
+			// No new input check for effect tails
+			if (read == 0) {
+				boolean shallSleep = true;
+
+				if (((System.currentTimeMillis() - lastInputTime) > frameDuration * 3) && !effects.isEmpty()) {
+					short[] tail = new short[bufferSize];
+					int[] length = new int[1];
+
+					synchronized (lock) {
+						for (IEffect effect : effects)
+							if (effect.processTail(tail, length)) {
+								output.write(tail, length[0]);
+								shallSleep = false;
+							}
+					}
+				}
+
+				if (shallSleep)
+					try {
+						Thread.sleep(frameDuration);
+					} catch (InterruptedException e) {
+						break;
+					}
+
+				continue;
+			}
+
+			lastInputTime = System.currentTimeMillis();
+
+			// Check if there are effects to apply
+			if (!effects.isEmpty()) {
+				synchronized (lock) {
+					Iterator<IEffect> iterator = effects.iterator();
+					while (iterator.hasNext()) {
+						IEffect effect = iterator.next();
+						if (effect.isStopped()) {
+							iterator.remove();
+							continue;
+						}
+
+						effect.apply(raw, read);
+					}
+				}
+			}
+
+			// Adding to the output buffer
+			output.write(raw, read);
 		}
 	}
 }

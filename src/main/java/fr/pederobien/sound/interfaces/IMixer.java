@@ -69,29 +69,33 @@ public interface IMixer {
 	void resetVolumes();
 
 	/**
-	 * Set the effect to apply on a stream. If an effect is already applied on the stream, the stop method is called and the given
-	 * effect is queued until the previous effect finish its transition to no modification. The effect's start method is automatically
-	 * called.
+	 * Adds an effect to apply on an audio stream. The start method is automatically applied.
 	 * 
-	 * @param name   The name of the stream on which an effect shall be applied.
-	 * @param effect The effect to apply.
+	 * @param name   The name of the stream on which an effect shall be added.
+	 * @param index  The index at which the effect shall be added. If the index is greater than the size of the list of effect then
+	 *               the effect will be added to the end.
+	 * @param effect The effect to add.
 	 */
-	void setEffect(String name, IEffect effect);
+	void addEffect(String name, int index, IEffect effect);
 
 	/**
-	 * Update parameters of an effect. The parameters defines how the effect modifies the audio stream.
+	 * Stops the effect associated to the given effectName. The effect will transition smoothly from applied to not applied. Once
+	 * stopped completely, the effect will be removed.
 	 * 
-	 * @param name   The name of the stream on which an effect shall be modified.
-	 * @param params An list of values of parameter.
+	 * @param name       The name of the audio stream for which an effect shall be removed.
+	 * @param effectName The name of the effect to remove.
 	 */
-	void setEffectValues(String name, Object... params);
+	void removeEffect(String name, String effectName);
 
 	/**
-	 * Call the stop method of the current effect of the stream associated to the given name.
+	 * Update the parameters of an effect. The parameters defines how the effect modifies the audio stream. If there is not effect
+	 * registered for the given audio stream name then the method returns. If a parameter name is not supported, the value will be
+	 * ignored. If the parameter's value has a wrong data type, the method throws an IllegalArgumentException.
 	 * 
-	 * @param name The name of the audio stream to update.
+	 * @param name   The name of the audio stream on which an effect shall be modified.
+	 * @param holder An holder that contains the effect name and gather parameter's name / parameter's value.
 	 */
-	void removeEffect(String name);
+	void updateEffect(String name, IEffectParametersHolder holder);
 
 	/**
 	 * Check if there is an audio stream registered for the given audio stream name.
