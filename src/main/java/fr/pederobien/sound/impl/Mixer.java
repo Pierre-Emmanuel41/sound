@@ -166,7 +166,7 @@ public class Mixer implements IMixer {
 
 			long now = System.currentTimeMillis();
 
-			if (now - silenceStartTime < 5 * frameDuration)
+			if (now - silenceStartTime < 3 * frameDuration)
 				return sleep(frameDuration) ? read(data) : -1;
 
 			silenceStartTime = 0;
