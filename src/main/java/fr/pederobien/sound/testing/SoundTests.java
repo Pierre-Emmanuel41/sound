@@ -105,10 +105,52 @@ public class SoundTests {
 		runTest("playBackTest", test);
 	}
 
+	public void volumeOffsetTest() {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			String name = "Player 1";
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				sleep(5000);
+				api.getMixer().setOffset(name, 1.0f);
+				sleep(5000);
+				api.getMixer().setOffset(name, 2.0f);
+				sleep(5000);
+				api.getMixer().setOffset(name, 2.5f);
+				sleep(5000);
+				api.getMixer().setOffset(name, 3.5f);
+				sleep(5000);
+				api.getMixer().setOffset(name, 0);
+				sleep(5000);
+				api.getMixer().setOffset(name, 5);
+				sleep(5000);
+				stop.set(true);
+			});
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
+				api.getMicrophone().read(sample);
+				api.getMixer().write(name, sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("volumeOffsetTest", test);
+	}
+
 	public void playbackLowPassFilterTest(double cutOffFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleLowPassFilter(cutOffFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleLowPassFilter(cutOffFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -144,7 +186,7 @@ public class SoundTests {
 	public void openCloseLowPassFilterTest(double cutOffFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleLowPassFilter(cutOffFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleLowPassFilter(cutOffFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -182,7 +224,7 @@ public class SoundTests {
 	public void playbackHighPassFilterTest(double cutOffFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleHighPassFilter(cutOffFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleHighPassFilter(cutOffFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -218,7 +260,7 @@ public class SoundTests {
 	public void openCloseHighPassFilterTest(double cutOffFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleHighPassFilter(cutOffFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleHighPassFilter(cutOffFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -256,7 +298,7 @@ public class SoundTests {
 	public void playbackBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -292,7 +334,7 @@ public class SoundTests {
 	public void openCloseBandPassFilterTest(double cutoffHighPassFrequency, double cutoffLowPassFrequency) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, 44100.0));
+			api.getMicrophone().setFilter(new SimpleBandPassFilter(cutoffHighPassFrequency, cutoffLowPassFrequency, api.getMixer().getSampleRate()));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -330,7 +372,7 @@ public class SoundTests {
 	public void playbackBiquadBandPassFilterTest(double frequency, double qualityFactor) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, 44100.0, qualityFactor));
+			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, api.getMixer().getSampleRate(), qualityFactor));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 
@@ -366,7 +408,7 @@ public class SoundTests {
 	public void openCloseBiquadBandPassFilterTest(double frequency, double qualityFactor) {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
-			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, 44100.0, qualityFactor));
+			api.getMicrophone().setFilter(new BiquadBandPassFilter(frequency, api.getMixer().getSampleRate(), qualityFactor));
 			api.getMicrophone().open();
 			api.getSpeakers().open();
 

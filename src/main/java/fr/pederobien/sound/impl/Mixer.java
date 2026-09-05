@@ -111,12 +111,14 @@ public class Mixer implements IMixer {
 	@Override
 	public void setOffset(String name, float offset) {
 		disposable.checkDisposed();
+		info("Adding an offset of %s on %s's audio stream", offset, name);
 		streams.getOrCreateStream(name).setOffset(offset);
 	}
 
 	@Override
 	public void setVolumes(String name, float left, float right, float global) {
 		disposable.checkDisposed();
+		debug("Setting the volume of %s's audio stream: left=%s, right=%s, global=%s", name, left, right, global);
 		streams.setVolumes(name, left, right, global);
 	}
 
@@ -237,6 +239,10 @@ public class Mixer implements IMixer {
 		} catch (InterruptedException e) {
 			return false;
 		}
+	}
+
+	private void debug(String format, Object... args) {
+		Logger.debug(3, "[Mixer] - %s", String.format(format, args));
 	}
 
 	private void info(String format, Object... args) {
