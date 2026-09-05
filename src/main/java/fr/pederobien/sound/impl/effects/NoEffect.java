@@ -8,6 +8,7 @@ import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.utils.event.Logger;
 
 public class NoEffect implements IEffect {
+
 	/**
 	 * The name of this effect.
 	 */
