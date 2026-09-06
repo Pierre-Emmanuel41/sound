@@ -109,10 +109,10 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void setOffset(String name, float offset) {
+	public void setVolumeFactor(String name, float offset) {
 		disposable.checkDisposed();
-		info("Adding an offset of %s on %s's audio stream", offset, name);
-		streams.getOrCreateStream(name).setOffset(offset);
+		info("Applying a factor of %s on %s's audio stream", offset, name);
+		streams.getOrCreateStream(name).setVolumeFactor(offset);
 	}
 
 	@Override

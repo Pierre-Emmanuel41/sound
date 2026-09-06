@@ -105,7 +105,7 @@ public class SoundTests {
 		runTest("playBackTest", test);
 	}
 
-	public void volumeOffsetTest() {
+	public void volumeFactorTest() {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
 
@@ -117,17 +117,17 @@ public class SoundTests {
 			AtomicBoolean stop = new AtomicBoolean(false);
 			Thread stopThread = new Thread(() -> {
 				sleep(5000);
-				api.getMixer().setOffset(name, 1.0f);
+				api.getMixer().setVolumeFactor(name, 0.1f);
 				sleep(5000);
-				api.getMixer().setOffset(name, 2.0f);
+				api.getMixer().setVolumeFactor(name, 0.5f);
 				sleep(5000);
-				api.getMixer().setOffset(name, 2.5f);
+				api.getMixer().setVolumeFactor(name, 1.0f);
 				sleep(5000);
-				api.getMixer().setOffset(name, 3.5f);
+				api.getMixer().setVolumeFactor(name, 1.25f);
 				sleep(5000);
-				api.getMixer().setOffset(name, 0);
+				api.getMixer().setVolumeFactor(name, 1.5f);
 				sleep(5000);
-				api.getMixer().setOffset(name, 5);
+				api.getMixer().setVolumeFactor(name, 2.0f);
 				sleep(5000);
 				stop.set(true);
 			});
@@ -144,7 +144,7 @@ public class SoundTests {
 			api.dispose();
 		};
 
-		runTest("volumeOffsetTest", test);
+		runTest("volumeFactorTest", test);
 	}
 
 	public void playbackLowPassFilterTest(double cutOffFrequency) {

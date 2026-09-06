@@ -45,13 +45,13 @@ public interface IMixer {
 	void write(String name, byte[] data);
 
 	/**
-	 * Set the volume offset to apply on an audio stream. The average volume of an audio stream my be too low compared to others. This
-	 * method applies an offset on the global volume. The method checks if the offset value is in range [0, 5].
+	 * Set the volume factor to apply on an audio stream. The average volume of an audio stream my be too low or too high compared to
+	 * others. This method applies a factor on the global volume. The method checks if the offset value is in range [0, 2].
 	 * 
 	 * @param name   The name of the audio stream to modify.
-	 * @param offset The volume offset to apply.
+	 * @param offset The volume factor to apply.
 	 */
-	void setOffset(String name, float offset);
+	void setVolumeFactor(String name, float factor);
 
 	/**
 	 * Set the left, right and global volumes of an audio stream.

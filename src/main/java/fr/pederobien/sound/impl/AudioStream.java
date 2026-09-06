@@ -21,7 +21,7 @@ public class AudioStream {
 	private float leftVolume;
 	private float rightVolume;
 	private float globalVolume;
-	private float offset;
+	private float factor;
 	private int bufferSize;
 	private int frameDuration;
 	private short[] tmp;
@@ -48,7 +48,7 @@ public class AudioStream {
 		leftVolume = 1;
 		rightVolume = 1;
 		globalVolume = 1;
-		offset = 0;
+		factor = 1;
 		bufferSize = 0;
 		frameDuration = 0;
 		lastInputTime = 0;
@@ -89,16 +89,17 @@ public class AudioStream {
 	}
 
 	/**
-	 * Set the offset to apply to the global volume to modify the left and right volumes.
+	 * The average volume of an audio stream my be too low or too high compared to others. This method applies a factor on the global
+	 * volume. The method checks if the offset value is in range [0, 2].
 	 * 
-	 * @param offset The value to apply on the global volume.
+	 * @param factor The volume factor to apply.
 	 */
-	public void setOffset(float offset) {
-		if (this.offset == offset)
+	public void setVolumeFactor(float factor) {
+		if (this.factor == factor)
 			return;
 
-		offset = Math.min(5, Math.max(0, offset));
-		this.offset = offset;
+		factor = Math.min(2, Math.max(0, factor));
+		this.factor = factor;
 	}
 
 	/**
@@ -183,11 +184,13 @@ public class AudioStream {
 		if (read == 0)
 			return 0;
 
+		float volume = globalVolume * factor;
+
 		// Applying volumes and clipping
 		for (int i = 0; i < read; i++) {
 			short value = tmp[i];
-			left[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * leftVolume * (globalVolume + offset)));
-			right[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * rightVolume * (globalVolume + offset)));
+			left[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * leftVolume * volume));
+			right[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, value * rightVolume * volume));
 		}
 
 		return read;
@@ -229,7 +232,7 @@ public class AudioStream {
 				if (read == 0) {
 					boolean shallSleep = true;
 
-					if (((System.currentTimeMillis() - lastInputTime) > frameDuration * 3) && !effects.isEmpty()) {
+					if (((System.currentTimeMillis() - lastInputTime) > 3 * frameDuration) && !effects.isEmpty()) {
 						short[] tail = new short[bufferSize];
 						int[] length = new int[1];
 

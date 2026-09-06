@@ -20,7 +20,7 @@ public class SoundTestApp {
 		tests.microphoneSimpleOpenCloseTest();
 		tests.microphoneOpenFetchCloseTest();
 		tests.playBackTest();
-		tests.volumeOffsetTest();
+		tests.volumeFactorTest();
 		tests.playbackLowPassFilterTest(3400);
 		tests.openCloseLowPassFilterTest(3400);
 		tests.playbackHighPassFilterTest(500);
