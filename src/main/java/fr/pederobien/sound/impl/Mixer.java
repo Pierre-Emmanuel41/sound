@@ -159,6 +159,18 @@ public class Mixer implements IMixer {
 		if (disposable.isDisposed())
 			return 0;
 
+		// First call
+		if (bufferSize == 0) {
+			bufferSize = data.length / 4;
+			left = new short[bufferSize];
+			right = new short[bufferSize];
+
+			AudioFormat format = microphoneLine.getFormat();
+			double bytesPerSample = format.getSampleSizeInBits() / 8.0;
+			double bytesPerSecond = format.getSampleRate() * bytesPerSample * format.getChannels();
+			frameDuration = (int) (bufferSize * 1000.0 / bytesPerSecond);
+		}
+
 		int read = readAndMergeStreams(data);
 
 		// All streams were empty
@@ -168,12 +180,11 @@ public class Mixer implements IMixer {
 
 			long now = System.currentTimeMillis();
 
-			if (now - silenceStartTime < 3 * frameDuration)
-				return sleep(frameDuration) ? read(data) : -1;
+			if (now - silenceStartTime < 10 * frameDuration)
+				return sleep(1 * frameDuration / 4) ? read(data) : -1;
 
-			silenceStartTime = 0;
 			Arrays.fill(data, 0, data.length, (byte) 0);
-			return sleep(frameDuration) ? data.length : -1;
+			return sleep(4 * frameDuration / 5) ? data.length : -1;
 		}
 
 		silenceStartTime = 0;
@@ -195,13 +206,6 @@ public class Mixer implements IMixer {
 	 * @return The number of bytes written in the input bytes array.
 	 */
 	private int readAndMergeStreams(byte[] data) {
-		// First call
-		if (bufferSize == 0) {
-			bufferSize = data.length / 4;
-			left = new short[bufferSize];
-			right = new short[bufferSize];
-			frameDuration = (int) (data.length * 1000.0 / getSampleRate());
-		}
 
 		// Reinitializing content of left and right channel for next frame
 		Arrays.fill(left, (short) 0);
