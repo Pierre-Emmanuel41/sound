@@ -26,7 +26,7 @@ public interface ISoundApi {
 	ISpeakers getSpeakers();
 
 	/**
-	 * @return The mixing table to play several streams at the same time.
+	 * @return The mixing table to play several streams at the same time. The default sample rate is 48 kHz.
 	 */
 	IMixer getMixer();
 }
