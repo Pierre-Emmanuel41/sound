@@ -25,7 +25,6 @@ public class AudioStream {
 	private int bufferSize;
 	private int frameDuration;
 	private short[] tmp;
-	private long lastInputTime;
 
 	/**
 	 * Creates an audio stream.
@@ -51,7 +50,6 @@ public class AudioStream {
 		factor = 1;
 		bufferSize = 0;
 		frameDuration = 0;
-		lastInputTime = 0;
 	}
 
 	/**
@@ -242,8 +240,6 @@ public class AudioStream {
 
 				// New data to be played
 				else {
-					// Updating time stamp when reading new sample
-					lastInputTime = System.currentTimeMillis();
 
 					// Modifying raw stream by effects if any
 					if (!effects.isEmpty())
