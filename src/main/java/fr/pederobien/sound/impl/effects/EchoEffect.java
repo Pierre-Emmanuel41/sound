@@ -81,6 +81,11 @@ public class EchoEffect implements IEffect {
 	 * The maximum delay in ms of the echo.
 	 */
 	private static final int MAX_DELAY_MS = 2000;
+
+	/**
+	 * Threshold to determine if the effect is still active even if there is no new input frames.
+	 */
+	private static final int TAIL_FLOOR = 32;
 	private final float sampleRate;
 	private final short[] delayBuffer;
 	private int bufferIndex;
@@ -253,45 +258,13 @@ public class EchoEffect implements IEffect {
 	}
 
 	@Override
-	public boolean processTail(short[] buffer, int[] length) {
-		short max = 0;
-		length[0] = buffer.length;
-
-		// Fill buffer with ONLY the echo decay (no dry input)
-		for (int i = 0; i < buffer.length; i++) {
-
-			// Step 1: Smooth parameters
-			currentGain = interpolate(currentGain, targetGain, fadeStep);
-			currentFeedback = interpolate(currentFeedback, targetFeedback, fadeStep);
-
-			// Step 2: Read from delay buffer
-			int readIndex = bufferIndex - currentBufferLength;
-			if (readIndex < 0)
-				readIndex += delayBuffer.length;
-
-			short delayedSample = delayBuffer[readIndex];
-
-			// Step 3: Output ONLY the delayed sample (scaled by gain/feedback)
-			// No "currentSample" added because input is silence
-			int outputSample = (int) (delayedSample * currentGain);
-
-			// Step 4: Clamp
-			buffer[i] = (short) Math.max(-SHORT_MAX_VALUE, Math.min(SHORT_MAX_VALUE, outputSample));
-
-			// Step 5: Update delay buffer with feedback ONLY (no dry input)
-			int feedbackSample = (int) (delayedSample * currentFeedback);
-			delayBuffer[bufferIndex] = (short) Math.max(-SHORT_MAX_VALUE, Math.min(SHORT_MAX_VALUE, feedbackSample));
-
-			// Step 6: Advance
-			bufferIndex = (bufferIndex + 1) % delayBuffer.length;
-
-			// Step 7: Tracking max value for silence detection
-			short absVal = (short) Math.abs(buffer[i]);
-			if (absVal > max)
-				max = absVal;
+	public boolean isTailActive() {
+		int start = (bufferIndex - currentBufferLength + delayBuffer.length) % delayBuffer.length;
+		for (int i = 0; i < currentBufferLength; i++) {
+			if (Math.abs(delayBuffer[(start + i) % delayBuffer.length]) > TAIL_FLOOR)
+				return true;
 		}
-
-		return max > 20;
+		return false;
 	}
 
 	@Override

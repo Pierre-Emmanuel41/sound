@@ -45,11 +45,7 @@ public interface IEffect {
 	void apply(short[] buffer, int length);
 
 	/**
-	 * This method is called when there is no new samples for an audio stream, but the effect is not finished.
-	 * 
-	 * @param buffer An buffer that contains only 0 and to be filled with effect tail.
-	 * @param length An array of one integer that contains the number of bytes written in the input buffer.
-	 * @return True if the effect still has remaining audio to output, false if fully dried up.
+	 * @return True if effect's tail is active, ie if there is still something to play, false otherwise.
 	 */
-	boolean processTail(short[] buffer, int[] length);
+	boolean isTailActive();
 }

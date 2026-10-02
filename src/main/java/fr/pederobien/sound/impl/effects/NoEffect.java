@@ -69,7 +69,7 @@ public class NoEffect implements IEffect {
 	}
 
 	@Override
-	public boolean processTail(short[] buffer, int[] length) {
+	public boolean isTailActive() {
 		return false;
 	}
 

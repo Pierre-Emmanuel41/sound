@@ -228,57 +228,56 @@ public class AudioStream {
 				if (read == -1)
 					break;
 
-				// No new input check for effect tails
+				// No new input, waiting or continuing with an array of silence
 				if (read == 0) {
-					boolean shallSleep = true;
 
-					if (((System.currentTimeMillis() - lastInputTime) > 3 * frameDuration) && !effects.isEmpty()) {
-						short[] tail = new short[bufferSize];
-						int[] length = new int[1];
+					if (effects.stream().anyMatch(e -> !e.isStopped() && e.isTailActive())) {
+						// Modifying raw stream by effects if any
+						applyEffects(raw, bufferSize);
 
-						synchronized (lock) {
-							for (IEffect effect : effects)
-								if (effect.processTail(tail, length)) {
-									output.write(tail, length[0]);
-									shallSleep = false;
-								}
-						}
-					}
-
-					if (shallSleep)
-						try {
-							Thread.sleep(frameDuration);
-						} catch (InterruptedException e) {
-							break;
-						}
-
-					continue;
-				}
-
-				lastInputTime = System.currentTimeMillis();
-
-				// Check if there are effects to apply
-				if (!effects.isEmpty()) {
-					synchronized (lock) {
-						Iterator<IEffect> iterator = effects.iterator();
-						while (iterator.hasNext()) {
-							IEffect effect = iterator.next();
-							if (effect.isStopped()) {
-								iterator.remove();
-								continue;
-							}
-
-							effect.apply(raw, read);
-						}
+						// Updating output stream to be played by the Mixer
+						output.write(raw, bufferSize);
 					}
 				}
 
-				// Adding to the output buffer
-				output.write(raw, read);
+				// New data to be played
+				else {
+					// Updating time stamp when reading new sample
+					lastInputTime = System.currentTimeMillis();
 
+					// Modifying raw stream by effects if any
+					if (!effects.isEmpty())
+						applyEffects(raw, read);
+
+					// Updating output stream to be played by the Mixer
+					output.write(raw, read);
+				}
+
+				Thread.sleep(frameDuration);
 			} catch (Exception e) {
 				input.reset();
 				output.reset();
+			}
+		}
+	}
+
+	/**
+	 * If there are effect defined for this stream, then apply each of them.
+	 * 
+	 * @param raw    The frame of the audio stream to modify.
+	 * @param length The number of bytes present in the array.
+	 */
+	private void applyEffects(short[] raw, int length) {
+		synchronized (lock) {
+			Iterator<IEffect> iterator = effects.iterator();
+			while (iterator.hasNext()) {
+				IEffect effect = iterator.next();
+				if (effect.isStopped()) {
+					iterator.remove();
+					continue;
+				}
+
+				effect.apply(raw, length);
 			}
 		}
 	}

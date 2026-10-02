@@ -201,7 +201,7 @@ public class UnderWaterEffect implements IEffect {
 	}
 
 	@Override
-	public boolean processTail(short[] buffer, int[] length) {
+	public boolean isTailActive() {
 		// No tail for this effect
 		return false;
 	}
