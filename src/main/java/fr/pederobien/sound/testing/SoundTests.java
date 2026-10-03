@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.impl.effects.EchoEffect;
+import fr.pederobien.sound.impl.effects.HelmetEffect;
 import fr.pederobien.sound.impl.effects.UnderWaterEffect;
 import fr.pederobien.sound.impl.filters.BiquadBandPassFilter;
 import fr.pederobien.sound.impl.filters.SimpleBandPassFilter;
@@ -494,6 +495,80 @@ public class SoundTests {
 		};
 
 		runTest("echoEffectTest", test);
+	}
+
+	public void helmetEffectTest() {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				try {
+					sleep(5000);
+
+					// Center frequency = 4000 Hz
+					IEffect effect = new HelmetEffect(api.getMixer().getSampleRate(), 4000, 3);
+					api.getMixer().addEffect("Player 1", 0, effect);
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(4000, 0.5f));
+					sleep(5000);
+					// Center frequency = 3000 Hz
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 3));
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 0.5f));
+					sleep(5000);
+					api.getMixer().removeEffect("Player 1", effect.getName());
+					sleep(5000);
+
+					// Center frequency = 2000 Hz
+					effect = new HelmetEffect(api.getMixer().getSampleRate(), 2000, 3);
+					api.getMixer().addEffect("Player 1", 0, effect);
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(2000, 0.5f));
+					sleep(5000);
+					// Center frequency = 1000 Hz
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 3));
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 0.5f));
+					sleep(5000);
+					api.getMixer().removeEffect("Player 1", effect.getName());
+					sleep(5000);
+
+					// Center frequency = 1000 Hz
+					effect = new HelmetEffect(api.getMixer().getSampleRate(), 900, 3);
+					api.getMixer().addEffect("Player 1", 0, effect);
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(900, 0.5f));
+					sleep(5000);
+					// Center frequency = 500 Hz
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 3));
+					sleep(5000);
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 0.5f));
+					sleep(5000);
+					api.getMixer().removeEffect("Player 1", effect.getName());
+					sleep(5000);
+					stop.set(true);
+				} catch (Exception e) {
+					// Do nothing
+				}
+			});
+
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("biquadHelmetEffectTest", test);
 	}
 
 	public void underWaterEffectTest() {

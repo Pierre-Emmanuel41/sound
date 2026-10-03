@@ -86,8 +86,10 @@ public class EchoEffect implements IEffect {
 	 * Threshold to determine if the effect is still active even if there is no new input frames.
 	 */
 	private static final int TAIL_FLOOR = 32;
+
 	private final float sampleRate;
 	private final short[] delayBuffer;
+	private final float fadeStep;
 	private int bufferIndex;
 	private int currentBufferLength;
 	private int targetBufferLength;
@@ -97,7 +99,6 @@ public class EchoEffect implements IEffect {
 	private float gain;
 	private float currentGain;
 	private float targetGain;
-	private float fadeStep;
 
 	/**
 	 * Creates an echo effect. The feedback and gain parameters modifies directly how the echo is done:<br>
@@ -148,7 +149,7 @@ public class EchoEffect implements IEffect {
 		currentGain = 0.0f;
 		targetGain = 0.0f;
 
-		fadeStep = 0.0001f;
+		fadeStep = (float) (1.0 / (sampleRate * 0.15f));
 	}
 
 	@Override

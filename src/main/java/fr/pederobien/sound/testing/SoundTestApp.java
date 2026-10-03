@@ -30,6 +30,7 @@ public class SoundTestApp {
 		tests.playbackBiquadBandPassFilterTest(1000.0, 0.707);
 		tests.openCloseBiquadBandPassFilterTest(1000.0, 0.707);
 		tests.echoEffectTest();
+		tests.helmetEffectTest();
 		tests.underWaterEffectTest();
 		tests.playBackRightThenLeftThenBothTest();
 		tests.microphoneOpenCloseTest();
