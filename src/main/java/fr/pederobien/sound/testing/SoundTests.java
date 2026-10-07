@@ -509,43 +509,43 @@ public class SoundTests {
 					sleep(5000);
 
 					// Center frequency = 4000 Hz
-					IEffect effect = new HelmetEffect(api.getMixer().getSampleRate(), 4000, 3);
+					IEffect effect = new HelmetEffect(api.getMixer().getSampleRate(), 4000, 3, 0.9f);
 					api.getMixer().addEffect("Player 1", 0, effect);
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(4000, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(4000, 0.5f, 0.9f));
 					sleep(5000);
 					// Center frequency = 3000 Hz
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 3));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 3, 0.9f));
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(3000, 0.5f, 0.9f));
 					sleep(5000);
 					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);
 
 					// Center frequency = 2000 Hz
-					effect = new HelmetEffect(api.getMixer().getSampleRate(), 2000, 3);
+					effect = new HelmetEffect(api.getMixer().getSampleRate(), 2000, 3, 0.8f);
 					api.getMixer().addEffect("Player 1", 0, effect);
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(2000, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(2000, 0.5f, 0.8f));
 					sleep(5000);
 					// Center frequency = 1000 Hz
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 3));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 3, 0.8f));
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(1500, 0.5f, 0.8f));
 					sleep(5000);
 					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);
 
 					// Center frequency = 1000 Hz
-					effect = new HelmetEffect(api.getMixer().getSampleRate(), 900, 3);
+					effect = new HelmetEffect(api.getMixer().getSampleRate(), 900, 3, 0.7f);
 					api.getMixer().addEffect("Player 1", 0, effect);
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(900, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(900, 0.5f, 0.7f));
 					sleep(5000);
 					// Center frequency = 500 Hz
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 3));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 3, 0.7f));
 					sleep(5000);
-					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 0.5f));
+					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(500, 0.5f, 0.7f));
 					sleep(5000);
 					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);

@@ -27,12 +27,18 @@ public class HelmetEffect implements IEffect {
 	public static final String QUALITY_FACTOR = "factor";
 
 	/**
+	 * The gain to apply on the output audio.
+	 */
+	public static final String GAIN = "gain";
+
+	/**
 	 * @return A holder to update with new parameter values.
 	 */
 	public static IEffectParametersHolder holder() {
 		Map<String, Class<?>> description = new HashMap<String, Class<?>>();
 		description.put(FREQUENCY, Float.class);
 		description.put(QUALITY_FACTOR, Float.class);
+		description.put(GAIN, Float.class);
 		return new EffectParametersHolder(NAME, description);
 	}
 
@@ -96,18 +102,21 @@ public class HelmetEffect implements IEffect {
 	 *                      <td>2.0</td>
 	 *                      </tr>
 	 *                      </table>
+	 * @param gain          The gain to apply on the output audio stream.
 	 * @return A holder that contains the new effect parameter values.
 	 */
-	public static IEffectParametersHolder holder(float frequency, float qualityFactor) {
+	public static IEffectParametersHolder holder(float frequency, float qualityFactor, float gain) {
 		IEffectParametersHolder holder = holder();
 		holder.setValue(FREQUENCY, frequency);
 		holder.setValue(QUALITY_FACTOR, qualityFactor);
+		holder.setValue(GAIN, gain);
 		return holder;
 	}
 
 	private final float sampleRate;
 	private float frequency;
 	private float factor;
+	private float gain;
 	private float b0, b1, b2, a1, a2;
 	private float previousInput1 = 0;
 	private float previousInput2 = 0;
@@ -158,7 +167,7 @@ public class HelmetEffect implements IEffect {
 	 *                      (effectively no filter).</li>
 	 *                      <li>Higher Q → narrower pass-band → more muffled. Lower Q → wider pass-band → less muffled.</li>
 	 *                      </ul>
-	 *
+	 * @param gain          The gain to apply on the output audio stream.
 	 *                      <p>
 	 *                      <strong>Quick presets:</strong>
 	 *                      <table border="1">
@@ -198,10 +207,11 @@ public class HelmetEffect implements IEffect {
 	 * HelmetEffect helmet = new HelmetEffect(48000, 1200, 1.0);
 	 * }</pre>
 	 */
-	public HelmetEffect(float sampleRate, float frequency, float qualityFactor) {
+	public HelmetEffect(float sampleRate, float frequency, float qualityFactor, float gain) {
 		this.sampleRate = sampleRate;
 		this.frequency = frequency;
 		this.factor = qualityFactor;
+		this.gain = Math.max(0, Math.min(1, gain));
 
 		targetMix = 0.0f;
 		currentMix = 0.0f;
@@ -225,7 +235,7 @@ public class HelmetEffect implements IEffect {
 			return;
 
 		targetMix = 1.0f;
-		debug("Starting effect (frequency=%s, factor=%s)", frequency, factor);
+		debug("Starting effect (frequency=%s, factor=%s, gain=%s)", frequency, factor, gain);
 	}
 
 	@Override
@@ -246,12 +256,16 @@ public class HelmetEffect implements IEffect {
 	public void update(IEffectParametersHolder holder) {
 		Object frequencyObj = holder.getValue(FREQUENCY);
 		Object factorObj = holder.getValue(QUALITY_FACTOR);
+		Object gainObj = holder.getValue(GAIN);
 
 		if (frequencyObj != null && factorObj != null) {
 			frequency = (float) frequencyObj;
 			factor = (float) factorObj;
 			update(frequency, factor);
 		}
+
+		if (gainObj != null)
+			gain = Math.max(0, Math.min(1, (float) gainObj));
 	}
 
 	@Override
@@ -269,7 +283,7 @@ public class HelmetEffect implements IEffect {
 			float filtered = b0 * normalized + b1 * previousInput1 + b2 * previousInput2 - a1 * previousOutput1 - a2 * previousOutput2;
 
 			// Step 3: Clipping
-			filtered = Math.max(-1.0f, Math.min(1.0f, filtered));
+			filtered = Math.max(-1.0f, Math.min(1.0f, filtered)) * gain;
 
 			// Step 4: Denormalizing
 			short wet = (short) (filtered * SHORT_MAX_VALUE);
@@ -295,6 +309,7 @@ public class HelmetEffect implements IEffect {
 		joiner.add("name=" + getName());
 		joiner.add("frequency=" + frequency);
 		joiner.add("qualityFactor=" + factor);
+		joiner.add("gain=" + gain);
 		return joiner.toString();
 	}
 

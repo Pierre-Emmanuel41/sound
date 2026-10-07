@@ -200,6 +200,7 @@ public class AudioStream {
 	public void flush() {
 		synchronized (lock) {
 			queue.clear();
+			effects.clear();
 		}
 	}
 
