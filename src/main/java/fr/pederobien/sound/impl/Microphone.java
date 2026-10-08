@@ -17,11 +17,14 @@ import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
 
 public class Microphone implements IMicrophone {
+	private final IMixer mixer;
 	private final TargetDataLine microphone;
 	private final AtomicBoolean isOpened;
 
 	private GenericFilter filter;
 	private Thread fetcher;
+	private boolean playback;
+	private String name;
 
 	/**
 	 * Creates a microphone.
@@ -29,6 +32,7 @@ public class Microphone implements IMicrophone {
 	 * @param mixer The mixer used to create the underlying TargetDataLine.
 	 */
 	protected Microphone(IMixer mixer) {
+		this.mixer = mixer;
 		this.microphone = mixer.getMicrophoneLine();
 
 		isOpened = new AtomicBoolean(false);
@@ -94,6 +98,15 @@ public class Microphone implements IMicrophone {
 		filter.setEnabled(isEnabled);
 	}
 
+	@Override
+	public void setPlayback(boolean playback, String name) {
+		if (this.playback == playback || name == null)
+			return;
+
+		this.name = name;
+		this.playback = playback;
+	}
+
 	private void process() {
 		while (isOpened.get()) {
 			byte[] buffer = new byte[microphone.getBufferSize() / 5];
@@ -107,6 +120,9 @@ public class Microphone implements IMicrophone {
 				buffer = ByteWrapper.wrap(buffer).extract(0, read);
 
 			filter.write(buffer);
+
+			if (playback)
+				mixer.write(name, buffer);
 		}
 	}
 }
