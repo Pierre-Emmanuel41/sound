@@ -455,7 +455,7 @@ public class SoundTests {
 				try {
 					sleep(5000);
 					IEffect effect = new EchoEffect(api.getMixer().getSampleRate(), 800, 0.4f, 0.8f);
-					api.getMixer().addEffect("Player 1", 0, effect);
+					api.getMixer().addEffect("Player 1", effect);
 					sleep(5000);
 					api.getMixer().updateEffect("Player 1", EchoEffect.holder(700, 0.4f, 0.8f));
 					sleep(5000);
@@ -510,7 +510,7 @@ public class SoundTests {
 
 					// Center frequency = 4000 Hz
 					IEffect effect = new HelmetEffect(api.getMixer().getSampleRate(), 4000, 3, 0.9f);
-					api.getMixer().addEffect("Player 1", 0, effect);
+					api.getMixer().addEffect("Player 1", effect);
 					sleep(5000);
 					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(4000, 0.5f, 0.9f));
 					sleep(5000);
@@ -524,7 +524,7 @@ public class SoundTests {
 
 					// Center frequency = 2000 Hz
 					effect = new HelmetEffect(api.getMixer().getSampleRate(), 2000, 3, 0.8f);
-					api.getMixer().addEffect("Player 1", 0, effect);
+					api.getMixer().addEffect("Player 1", effect);
 					sleep(5000);
 					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(2000, 0.5f, 0.8f));
 					sleep(5000);
@@ -538,7 +538,7 @@ public class SoundTests {
 
 					// Center frequency = 1000 Hz
 					effect = new HelmetEffect(api.getMixer().getSampleRate(), 900, 3, 0.7f);
-					api.getMixer().addEffect("Player 1", 0, effect);
+					api.getMixer().addEffect("Player 1", effect);
 					sleep(5000);
 					api.getMixer().updateEffect("Player 1", HelmetEffect.holder(900, 0.5f, 0.7f));
 					sleep(5000);
@@ -590,7 +590,7 @@ public class SoundTests {
 					float reverbDelay = 35;
 					float reverbDecay = 0.5f;
 					IEffect effect = new UnderWaterEffect(sampleRate, cutOffFrequency, gain, chorusFrequency, chorusDepth, chorusDelay, reverbDelay, reverbDecay);
-					api.getMixer().addEffect("Player 1", 0, effect);
+					api.getMixer().addEffect("Player 1", effect);
 					sleep(10000);
 					api.getMixer().removeEffect("Player 1", effect.getName());
 					sleep(5000);

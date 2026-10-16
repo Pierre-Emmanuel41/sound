@@ -101,20 +101,15 @@ public class AudioStream {
 	}
 
 	/**
-	 * Adds an effect at the specified index. If the index is greater than the size of the list of effect then the effect will be
-	 * added to the end.
+	 * Adds an effect to the underlying list of effects. The effect is started before being added.
 	 * 
-	 * @param index  The index at which the effect shall be added.
 	 * @param effect The effect to add.
 	 */
-	public void addEffect(int index, IEffect effect) {
+	public void addEffect(IEffect effect) {
 		effect.start();
 
 		synchronized (lock) {
-			if (effects.size() <= index)
-				index = effects.size();
-
-			effects.add(index, effect);
+			effects.add(effect);
 		}
 	}
 

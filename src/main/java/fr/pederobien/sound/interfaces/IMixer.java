@@ -69,14 +69,12 @@ public interface IMixer {
 	void resetVolumes();
 
 	/**
-	 * Adds an effect to apply on an audio stream. The start method is automatically applied.
+	 * Adds an effect to apply on an audio stream. The effect is started before being added.
 	 * 
 	 * @param name   The name of the stream on which an effect shall be added.
-	 * @param index  The index at which the effect shall be added. If the index is greater than the size of the list of effect then
-	 *               the effect will be added to the end.
 	 * @param effect The effect to add.
 	 */
-	void addEffect(String name, int index, IEffect effect);
+	void addEffect(String name, IEffect effect);
 
 	/**
 	 * Stops the effect associated to the given effectName. The effect will transition smoothly from applied to not applied. Once

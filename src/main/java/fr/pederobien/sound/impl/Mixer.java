@@ -123,10 +123,10 @@ public class Mixer implements IMixer {
 	}
 
 	@Override
-	public void addEffect(String name, int index, IEffect effect) {
+	public void addEffect(String name, IEffect effect) {
 		disposable.checkDisposed();
 		info("Adding an effect on %s's audio stream: %s", name, effect);
-		streams.getOrCreateStream(name).addEffect(index, effect);
+		streams.getOrCreateStream(name).addEffect(effect);
 	}
 
 	@Override
