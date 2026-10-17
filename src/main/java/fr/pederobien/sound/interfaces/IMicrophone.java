@@ -39,13 +39,4 @@ public interface IMicrophone {
 	 * @param isEnabled True to filter the microphone stream, false to leave it as it is.
 	 */
 	void setFilterEnabled(boolean isEnabled);
-
-	/**
-	 * Set if the microphone output shall be played back to the speakers. If the audio stream name is null, the microphone output is
-	 * not played back.
-	 * 
-	 * @param playback True if the output shall be played back.
-	 * @param name     The name of the audio stream to stream to play back.
-	 */
-	void setPlayback(boolean playback, String name);
 }
