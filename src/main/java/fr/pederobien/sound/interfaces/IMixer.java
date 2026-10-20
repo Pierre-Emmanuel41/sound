@@ -1,5 +1,7 @@
 package fr.pederobien.sound.interfaces;
 
+import java.util.List;
+
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 
@@ -101,6 +103,14 @@ public interface IMixer {
 	 * @param name The name of the audio stream.
 	 */
 	void clearEffects(String name);
+
+	/**
+	 * Gets an unmodifiable copy of the list of effects currently applied on an audio stream.
+	 * 
+	 * @param name The name of the audio stream.
+	 * @return An unmodifiable list if an audio stream is registered, null otherwise.
+	 */
+	List<IEffect> getEffects(String name);
 
 	/**
 	 * Check if there is an audio stream registered for the given audio stream name.

@@ -2,6 +2,7 @@ package fr.pederobien.sound.impl;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
@@ -145,6 +146,15 @@ public class AudioStream {
 	public void clearEffects() {
 		synchronized (lock) {
 			effects.clear();
+		}
+	}
+
+	/**
+	 * @return An unmodifiable list of effects currently applied on this stream.
+	 */
+	public List<IEffect> getEffects() {
+		synchronized (lock) {
+			return Collections.unmodifiableList(effects);
 		}
 	}
 

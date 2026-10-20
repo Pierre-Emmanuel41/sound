@@ -1,5 +1,6 @@
 package fr.pederobien.sound.testing;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import fr.pederobien.sound.impl.SoundApi;
@@ -634,6 +635,8 @@ public class SoundTests {
 					api.getMixer().addEffect("Player 1", effect);
 					sleep(10000);
 
+					List<IEffect> effects = api.getMixer().getEffects("Player 1");
+					Logger.info("List of effects currently applied: %s", effects.toString());
 					api.getMixer().clearEffects("Player 1");
 					sleep(5000);
 					stop.set(true);

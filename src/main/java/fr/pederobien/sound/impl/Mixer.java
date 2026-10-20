@@ -1,6 +1,7 @@
 package fr.pederobien.sound.impl;
 
 import java.util.Arrays;
+import java.util.List;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -178,6 +179,17 @@ public class Mixer implements IMixer {
 			return;
 
 		stream.clearEffects();
+	}
+
+	@Override
+	public List<IEffect> getEffects(String name) {
+		disposable.checkDisposed();
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return null;
+
+		return stream.getEffects();
 	}
 
 	@Override
