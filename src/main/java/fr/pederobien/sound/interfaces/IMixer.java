@@ -96,6 +96,13 @@ public interface IMixer {
 	void updateEffect(String name, IEffectParametersHolder holder);
 
 	/**
+	 * Removes all effects applied on an audio stream without stopping them.
+	 * 
+	 * @param name The name of the audio stream.
+	 */
+	void clearEffects(String name);
+
+	/**
 	 * Check if there is an audio stream registered for the given audio stream name.
 	 * 
 	 * @param name The name of the audio stream.

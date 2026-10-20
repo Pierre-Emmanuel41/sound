@@ -1,11 +1,11 @@
 package fr.pederobien.sound.impl;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class StreamMap {
 	private final float sampleRate;
-	private final List<AudioStream> streams;
+	private final Map<String, AudioStream> streams;
 	private final Object lock;
 	private int bufferSize;
 	private short[] tmpLeft;
@@ -18,27 +18,38 @@ public class StreamMap {
 	 */
 	public StreamMap(float sampleRate) {
 		this.sampleRate = sampleRate;
-		streams = new ArrayList<AudioStream>();
+		streams = new HashMap<String, AudioStream>();
 		lock = new Object();
 	}
 
 	/**
-	 * Get a stream associated to the given name if registered. If there is no stream associated to the given name, one is created.
+	 * Gets a stream associated to the given name if registered. If there is no stream associated to the given name, one is created.
 	 * 
 	 * @param name The name of the stream to retrieve.
 	 * @return The stream associated to the given name.
 	 */
 	public AudioStream getOrCreateStream(String name) {
 		synchronized (lock) {
-			for (AudioStream stream : streams)
-				if (stream.getName().equals(name))
-					return stream;
-		}
+			AudioStream stream = streams.get(name);
+			if (stream == null) {
+				stream = new AudioStream(name, sampleRate);
+				streams.put(name, stream);
+			}
 
-		// Stream not found
-		AudioStream stream = new AudioStream(name, sampleRate);
-		streams.add(stream);
-		return stream;
+			return stream;
+		}
+	}
+
+	/**
+	 * Gets a stream associated to the given name if registered.
+	 * 
+	 * @param name The name of the stream to retrieve.
+	 * @return Null if there is no stream registered for the given name, the audio stream otherwise.
+	 */
+	public AudioStream getStream(String name) {
+		synchronized (lock) {
+			return streams.get(name);
+		}
 	}
 
 	/**
@@ -49,12 +60,8 @@ public class StreamMap {
 	 */
 	public boolean exist(String name) {
 		synchronized (lock) {
-			for (AudioStream stream : streams)
-				if (stream.getName().equals(name))
-					return true;
+			return streams.get(name) != null;
 		}
-
-		return false;
 	}
 
 	/**
@@ -75,7 +82,7 @@ public class StreamMap {
 		int read = 0;
 
 		synchronized (lock) {
-			for (AudioStream stream : streams) {
+			for (AudioStream stream : streams.values()) {
 
 				// Getting left and right sample for the stream
 				int tmpRead = stream.read(tmpLeft, tmpRight, length);
@@ -103,7 +110,7 @@ public class StreamMap {
 	 */
 	public void flush() {
 		synchronized (lock) {
-			for (AudioStream stream : streams)
+			for (AudioStream stream : streams.values())
 				stream.flush();
 		}
 	}
@@ -116,8 +123,10 @@ public class StreamMap {
 	 * @param right  The volume on the right side.
 	 * @param global The global volume on both sides.
 	 */
-	public void setVolumes(String name, float left, float right, float global) {
-		setVolumes(getOrCreateStream(name), left, right, global);
+	public void setVolumes(AudioStream stream, float left, float right, float global) {
+		stream.setLeftVolume(left);
+		stream.setRightVolume(right);
+		stream.setGlobalVolume(global);
 	}
 
 	/**
@@ -125,14 +134,8 @@ public class StreamMap {
 	 */
 	public void resetVolumes() {
 		synchronized (lock) {
-			for (AudioStream stream : streams)
+			for (AudioStream stream : streams.values())
 				setVolumes(stream, 1.0f, 1.0f, 1.0f);
 		}
-	}
-
-	private void setVolumes(AudioStream stream, float left, float right, float global) {
-		stream.setLeftVolume(left);
-		stream.setRightVolume(right);
-		stream.setGlobalVolume(global);
 	}
 }

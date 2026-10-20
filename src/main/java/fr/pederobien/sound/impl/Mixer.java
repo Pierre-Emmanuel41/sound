@@ -112,35 +112,72 @@ public class Mixer implements IMixer {
 	public void setVolumeFactor(String name, float offset) {
 		disposable.checkDisposed();
 		info("Applying a factor of %s on %s's audio stream", offset, name);
-		streams.getOrCreateStream(name).setVolumeFactor(offset);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		stream.setVolumeFactor(offset);
 	}
 
 	@Override
 	public void setVolumes(String name, float left, float right, float global) {
 		disposable.checkDisposed();
 		debug("Setting the volume of %s's audio stream: left=%s, right=%s, global=%s", name, left, right, global);
-		streams.setVolumes(name, left, right, global);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		streams.setVolumes(stream, left, right, global);
 	}
 
 	@Override
 	public void addEffect(String name, IEffect effect) {
 		disposable.checkDisposed();
 		info("Adding an effect on %s's audio stream: %s", name, effect);
-		streams.getOrCreateStream(name).addEffect(effect);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		stream.addEffect(effect);
 	}
 
 	@Override
 	public void removeEffect(String name, String effectName) {
 		disposable.checkDisposed();
 		info("Removing %s from %s's audio stream", effectName, name);
-		streams.getOrCreateStream(name).removeEffect(effectName);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		stream.removeEffect(effectName);
 	}
 
 	@Override
 	public void updateEffect(String name, IEffectParametersHolder holder) {
 		disposable.checkDisposed();
-		info("Updating an effect on %s's audio stream %s", name, holder);
-		streams.getOrCreateStream(name).updateEffect(holder);
+		info("Updating an effect on %s's audio stream: %s", name, holder);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		stream.updateEffect(holder);
+	}
+
+	@Override
+	public void clearEffects(String name) {
+		disposable.checkDisposed();
+		info("Removing all effects on %s's audio stream.", name);
+
+		AudioStream stream = streams.getStream(name);
+		if (stream == null)
+			return;
+
+		stream.clearEffects();
 	}
 
 	@Override

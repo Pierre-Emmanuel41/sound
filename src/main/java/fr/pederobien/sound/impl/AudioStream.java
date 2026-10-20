@@ -140,6 +140,15 @@ public class AudioStream {
 	}
 
 	/**
+	 * Removes all effects registered on this stream without stopping them.
+	 */
+	public void clearEffects() {
+		synchronized (lock) {
+			effects.clear();
+		}
+	}
+
+	/**
 	 * Add the given bytes array to the underlying queue of the stream.
 	 * 
 	 * @param data The bytes array that contains the audio sample to add to a stream.

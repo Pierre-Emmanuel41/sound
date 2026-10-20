@@ -616,6 +616,48 @@ public class SoundTests {
 		runTest("underWaterEffectTest", test);
 	}
 
+	public void clearEffectsTest() {
+		IExecutable test = () -> {
+			ISoundApi api = createSoundApi();
+			api.getMicrophone().open();
+			api.getSpeakers().open();
+
+			AtomicBoolean stop = new AtomicBoolean(false);
+			Thread stopThread = new Thread(() -> {
+				try {
+					sleep(5000);
+					IEffect effect = new EchoEffect(api.getMixer().getSampleRate(), 800, 0.4f, 0.8f);
+					api.getMixer().addEffect("Player 1", effect);
+					sleep(10000);
+
+					effect = new HelmetEffect(api.getMixer().getSampleRate(), 2000, 3, 0.8f);
+					api.getMixer().addEffect("Player 1", effect);
+					sleep(10000);
+
+					api.getMixer().clearEffects("Player 1");
+					sleep(5000);
+					stop.set(true);
+				} catch (Exception e) {
+					// Do nothing
+				}
+			});
+
+			stopThread.start();
+
+			while (!stop.get()) {
+				byte[] sample = new byte[api.getMixer().getMicrophoneLine().getBufferSize() / 5];
+				api.getMicrophone().read(sample);
+				api.getMixer().write("Player 1", sample);
+			}
+
+			api.getMicrophone().close();
+			api.getSpeakers().close();
+			api.dispose();
+		};
+
+		runTest("clearEffectsTest", test);
+	}
+
 	public void playBackRightThenLeftThenBothTest() {
 		IExecutable test = () -> {
 			ISoundApi api = createSoundApi();
